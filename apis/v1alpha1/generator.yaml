@@ -1,3 +1,71 @@
-ignore:
-  resource_names:
-      - Stream
+operations:
+  # NOTE)jaypipes): According to
+  # https://docs.aws.amazon.com/kinesis/latest/APIReference/API_DescribeStream.html,
+  # the DescribeStream API should not be used. Instead, the
+  # DescribeStreamSummary API and ListShards API should be used.
+  DescribeStreamSummary:
+    resource_name: Stream
+    operation_type: READ_ONE
+    output_wrapper_field_path: StreamDescriptionSummary
+resources:
+  Stream:
+    renames:
+      operations:
+        DescribeStreamSummary:
+          input_fields:
+            StreamName: Name
+        CreateStream:
+          input_fields:
+            StreamName: Name
+        DeleteStream:
+          input_fields:
+            StreamName: Name
+    tags:
+      # TODO(jaypipes): Stream actually supports tags via separate API calls,
+      # just not tag on create... add support for this later on.
+      ignore: true
+    fields:
+      Name:
+        is_primary_key: true
+      # NOTE(jaypipes): It is necessary to hand-roll all these fields because
+      # the CreateStream output shape has no members at all...
+      ConsumerCount:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.ConsumerCount
+      EncryptionType:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.EncryptionType
+      EnhancedMonitoring:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.EnhancedMonitoring
+      KeyId:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.KeyId
+      OpenShardCount:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.OpenShardCount
+      RetentionPeriodHours:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.RetentionPeriodHours
+      StreamCreationTimestamp:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.StreamCreationTimestamp
+      StreamStatus:
+        is_read_only: true
+        from:
+          operation: DescribeStreamSummary
+          path: StreamDescriptionSummary.StreamStatus
