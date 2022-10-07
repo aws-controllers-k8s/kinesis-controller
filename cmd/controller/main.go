@@ -34,6 +34,8 @@ import (
 	svctypes "github.com/aws-controllers-k8s/kinesis-controller/apis/v1alpha1"
 	svcresource "github.com/aws-controllers-k8s/kinesis-controller/pkg/resource"
 
+	_ "github.com/aws-controllers-k8s/kinesis-controller/pkg/resource/stream"
+
 	"github.com/aws-controllers-k8s/kinesis-controller/pkg/version"
 )
 

@@ -27,3 +27,138 @@ var (
 	_ = &aws.JSONValue{}
 	_ = ackv1alpha1.AWSAccountID("")
 )
+
+// Output parameter of the GetRecords API. The existing child shard of the current
+// shard.
+type ChildShard struct {
+	// The range of possible hash key values for the shard, which is a set of ordered
+	// contiguous positive integers.
+	HashKeyRange *HashKeyRange `json:"hashKeyRange,omitempty"`
+	ShardID      *string       `json:"shardID,omitempty"`
+}
+
+// An object that represents the details of the consumer you registered. This
+// type of object is returned by RegisterStreamConsumer.
+type Consumer struct {
+	ConsumerCreationTimestamp *metav1.Time `json:"consumerCreationTimestamp,omitempty"`
+}
+
+// An object that represents the details of a registered consumer. This type
+// of object is returned by DescribeStreamConsumer.
+type ConsumerDescription struct {
+	ConsumerCreationTimestamp *metav1.Time `json:"consumerCreationTimestamp,omitempty"`
+	StreamARN                 *string      `json:"streamARN,omitempty"`
+}
+
+// Represents enhanced metrics types.
+type EnhancedMetrics struct {
+	ShardLevelMetrics []*string `json:"shardLevelMetrics,omitempty"`
+}
+
+// The range of possible hash key values for the shard, which is a set of ordered
+// contiguous positive integers.
+type HashKeyRange struct {
+	EndingHashKey   *string `json:"endingHashKey,omitempty"`
+	StartingHashKey *string `json:"startingHashKey,omitempty"`
+}
+
+// Represents the output for PutRecords.
+type PutRecordsRequestEntry struct {
+	ExplicitHashKey *string `json:"explicitHashKey,omitempty"`
+}
+
+// Represents the result of an individual record from a PutRecords request.
+// A record that is successfully added to a stream includes SequenceNumber and
+// ShardId in the result. A record that fails to be added to the stream includes
+// ErrorCode and ErrorMessage in the result.
+type PutRecordsResultEntry struct {
+	SequenceNumber *string `json:"sequenceNumber,omitempty"`
+	ShardID        *string `json:"shardID,omitempty"`
+}
+
+// The unit of data of the Kinesis data stream, which is composed of a sequence
+// number, a partition key, and a data blob.
+type Record struct {
+	ApproximateArrivalTimestamp *metav1.Time `json:"approximateArrivalTimestamp,omitempty"`
+	EncryptionType              *string      `json:"encryptionType,omitempty"`
+	SequenceNumber              *string      `json:"sequenceNumber,omitempty"`
+}
+
+// The range of possible sequence numbers for the shard.
+type SequenceNumberRange struct {
+	EndingSequenceNumber   *string `json:"endingSequenceNumber,omitempty"`
+	StartingSequenceNumber *string `json:"startingSequenceNumber,omitempty"`
+}
+
+// A uniquely identified group of data records in a Kinesis data stream.
+type Shard struct {
+	AdjacentParentShardID *string `json:"adjacentParentShardID,omitempty"`
+	// The range of possible hash key values for the shard, which is a set of ordered
+	// contiguous positive integers.
+	HashKeyRange  *HashKeyRange `json:"hashKeyRange,omitempty"`
+	ParentShardID *string       `json:"parentShardID,omitempty"`
+	// The range of possible sequence numbers for the shard.
+	SequenceNumberRange *SequenceNumberRange `json:"sequenceNumberRange,omitempty"`
+	ShardID             *string              `json:"shardID,omitempty"`
+}
+
+// The request parameter used to filter out the response of the ListShards API.
+type ShardFilter struct {
+	ShardID   *string      `json:"shardID,omitempty"`
+	Timestamp *metav1.Time `json:"timestamp,omitempty"`
+}
+
+// The starting position in the data stream from which to start streaming.
+type StartingPosition struct {
+	SequenceNumber *string      `json:"sequenceNumber,omitempty"`
+	Timestamp      *metav1.Time `json:"timestamp,omitempty"`
+}
+
+// Represents the output for DescribeStream.
+type StreamDescription struct {
+	EncryptionType          *string            `json:"encryptionType,omitempty"`
+	EnhancedMonitoring      []*EnhancedMetrics `json:"enhancedMonitoring,omitempty"`
+	HasMoreShards           *bool              `json:"hasMoreShards,omitempty"`
+	KeyID                   *string            `json:"keyID,omitempty"`
+	RetentionPeriodHours    *int64             `json:"retentionPeriodHours,omitempty"`
+	Shards                  []*Shard           `json:"shards,omitempty"`
+	StreamARN               *string            `json:"streamARN,omitempty"`
+	StreamCreationTimestamp *metav1.Time       `json:"streamCreationTimestamp,omitempty"`
+	// Specifies the capacity mode to which you want to set your data stream. Currently,
+	// in Kinesis Data Streams, you can choose between an on-demand capacity mode
+	// and a provisioned capacity mode for your data streams.
+	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
+	StreamName        *string            `json:"streamName,omitempty"`
+	StreamStatus      *string            `json:"streamStatus,omitempty"`
+}
+
+// Represents the output for DescribeStreamSummary
+type StreamDescriptionSummary struct {
+	ConsumerCount           *int64             `json:"consumerCount,omitempty"`
+	EncryptionType          *string            `json:"encryptionType,omitempty"`
+	EnhancedMonitoring      []*EnhancedMetrics `json:"enhancedMonitoring,omitempty"`
+	KeyID                   *string            `json:"keyID,omitempty"`
+	OpenShardCount          *int64             `json:"openShardCount,omitempty"`
+	RetentionPeriodHours    *int64             `json:"retentionPeriodHours,omitempty"`
+	StreamARN               *string            `json:"streamARN,omitempty"`
+	StreamCreationTimestamp *metav1.Time       `json:"streamCreationTimestamp,omitempty"`
+	// Specifies the capacity mode to which you want to set your data stream. Currently,
+	// in Kinesis Data Streams, you can choose between an on-demand capacity mode
+	// and a provisioned capacity mode for your data streams.
+	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
+	StreamName        *string            `json:"streamName,omitempty"`
+	StreamStatus      *string            `json:"streamStatus,omitempty"`
+}
+
+// Specifies the capacity mode to which you want to set your data stream. Currently,
+// in Kinesis Data Streams, you can choose between an on-demand capacity mode
+// and a provisioned capacity mode for your data streams.
+type StreamModeDetails struct {
+	StreamMode *string `json:"streamMode,omitempty"`
+}
+
+// After you call SubscribeToShard, Kinesis Data Streams sends events of this
+// type over an HTTP/2 connection to your consumer.
+type SubscribeToShardEvent struct {
+	ContinuationSequenceNumber *string `json:"continuationSequenceNumber,omitempty"`
+}

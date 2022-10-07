@@ -9,6 +9,7 @@ rules:
 - apiGroups:
   - kinesis.services.k8s.aws
   resources:
+  - streams
   verbs:
   - get
   - list

@@ -77,11 +77,11 @@ const (
 	StreamMode_ON_DEMAND   StreamMode = "ON_DEMAND"
 )
 
-type StreamStatus string
+type StreamStatus_SDK string
 
 const (
-	StreamStatus_CREATING StreamStatus = "CREATING"
-	StreamStatus_DELETING StreamStatus = "DELETING"
-	StreamStatus_ACTIVE   StreamStatus = "ACTIVE"
-	StreamStatus_UPDATING StreamStatus = "UPDATING"
+	StreamStatus_SDK_CREATING StreamStatus_SDK = "CREATING"
+	StreamStatus_SDK_DELETING StreamStatus_SDK = "DELETING"
+	StreamStatus_SDK_ACTIVE   StreamStatus_SDK = "ACTIVE"
+	StreamStatus_SDK_UPDATING StreamStatus_SDK = "UPDATING"
 )
