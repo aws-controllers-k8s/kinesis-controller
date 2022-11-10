@@ -20,6 +20,10 @@ resources:
         DeleteStream:
           input_fields:
             StreamName: Name
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
     tags:
       # TODO(jaypipes): Stream actually supports tags via separate API calls,
       # just not tag on create... add support for this later on.
