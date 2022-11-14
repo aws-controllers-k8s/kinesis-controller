@@ -77,7 +77,7 @@ func (rm *resourceManager) sdkFind(
 	resp, err = rm.sdkapi.DescribeStreamSummaryWithContext(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeStreamSummary", err)
 	if err != nil {
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
