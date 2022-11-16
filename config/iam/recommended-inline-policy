@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "kinesis:ListStreams",
+                "kinesis:DeleteStream",
+                "kinesis:DescribeStreamSummary",
+                "kinesis:ListShards",
+                "kinesis:UpdateShardCount",
+                "kinesis:CreateStream",
+                "kinesis:DescribeStream"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

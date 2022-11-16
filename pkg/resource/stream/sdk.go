@@ -255,9 +255,60 @@ func (rm *resourceManager) sdkUpdate(
 	desired *resource,
 	latest *resource,
 	delta *ackcompare.Delta,
-) (*resource, error) {
-	// TODO(jaypipes): Figure this out...
-	return nil, ackerr.NotImplemented
+) (updated *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkUpdate")
+	defer func() {
+		exit(err)
+	}()
+	input, err := rm.newUpdateRequestPayload(ctx, desired)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *svcsdk.UpdateShardCountOutput
+	_ = resp
+	resp, err = rm.sdkapi.UpdateShardCountWithContext(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "UpdateShardCount", err)
+	if err != nil {
+		return nil, err
+	}
+	// Merge in the information we read from the API call above to the copy of
+	// the original Kubernetes object we passed to the function
+	ko := desired.ko.DeepCopy()
+
+	if resp.StreamName != nil {
+		ko.Spec.Name = resp.StreamName
+	} else {
+		ko.Spec.Name = nil
+	}
+	if resp.TargetShardCount != nil {
+		ko.Spec.ShardCount = resp.TargetShardCount
+	} else {
+		ko.Spec.ShardCount = nil
+	}
+
+	rm.setStatusDefaults(ko)
+	return &resource{ko}, nil
+}
+
+// newUpdateRequestPayload returns an SDK-specific struct for the HTTP request
+// payload of the Update API call for the resource
+func (rm *resourceManager) newUpdateRequestPayload(
+	ctx context.Context,
+	r *resource,
+) (*svcsdk.UpdateShardCountInput, error) {
+	res := &svcsdk.UpdateShardCountInput{}
+
+	res.SetScalingType("UNIFORM_SCALING")
+	if r.ko.Spec.Name != nil {
+		res.SetStreamName(*r.ko.Spec.Name)
+	}
+	if r.ko.Spec.ShardCount != nil {
+		res.SetTargetShardCount(*r.ko.Spec.ShardCount)
+	}
+
+	return res, nil
 }
 
 // sdkDelete deletes the supplied resource in the backend AWS service API

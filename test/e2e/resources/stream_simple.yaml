@@ -4,4 +4,4 @@ metadata:
   name: $STREAM_NAME
 spec:
   name: $STREAM_NAME
-  shardCount: 2
+  shardCount: $SHARD_COUNT

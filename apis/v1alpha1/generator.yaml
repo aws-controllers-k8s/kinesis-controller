@@ -7,6 +7,12 @@ operations:
     resource_name: Stream
     operation_type: READ_ONE
     output_wrapper_field_path: StreamDescriptionSummary
+  UpdateShardCount:
+    resource_name: Stream
+    operation_type: UPDATE
+    override_values:
+      # This is the only accepted value for this field, and it's required...
+      ScalingType: UNIFORM_SCALING
 resources:
   Stream:
     renames:
@@ -20,6 +26,11 @@ resources:
         DeleteStream:
           input_fields:
             StreamName: Name
+        UpdateShardCount:
+          input_fields:
+            StreamName: Name
+          output_fields:
+            TargetShardCount: ShardCount
     exceptions:
       errors:
         404:
