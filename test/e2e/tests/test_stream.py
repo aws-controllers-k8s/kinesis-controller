@@ -29,7 +29,7 @@ RESOURCE_PLURAL = "streams"
 
 DELETE_WAIT_AFTER_SECONDS = 10
 CHECK_STATUS_WAIT_SECONDS = 10
-MODIFY_WAIT_AFTER_SECONDS = 10
+MODIFY_WAIT_AFTER_SECONDS = 30
 
 
 @service_marker
@@ -37,9 +37,11 @@ MODIFY_WAIT_AFTER_SECONDS = 10
 class TestStream:
     def test_crud(self):
         stream_name = random_suffix_name("my-simple-stream", 24)
+        shard_count = "1"
 
         replacements = REPLACEMENT_VALUES.copy()
         replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = shard_count
 
         resource_data = load_kinesis_resource(
             "stream_simple",
@@ -62,6 +64,19 @@ class TestStream:
         latest = stream.get(stream_name)
         assert latest is not None
         assert latest['StreamName'] == stream_name
+        assert int(latest['OpenShardCount']) == int(shard_count)
+
+        # Test the code paths that update shard count
+        shard_count = "2"
+        updates = {
+            "spec": {"shardCount": int(shard_count)},
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        latest = stream.get(stream_name)
+        assert latest is not None
+        assert int(latest['OpenShardCount']) == int(shard_count)
 
         k8s.delete_custom_resource(ref)
 

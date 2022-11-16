@@ -96,7 +96,7 @@ def get(stream_name):
     """
     c = boto3.client('kinesis')
     try:
-        resp = c.describe_stream(StreamName=stream_name)
-        return resp['StreamDescription']
+        resp = c.describe_stream_summary(StreamName=stream_name)
+        return resp['StreamDescriptionSummary']
     except c.exceptions.ResourceNotFoundException:
         return None
