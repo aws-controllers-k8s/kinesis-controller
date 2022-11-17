@@ -1,5 +1,3 @@
-# This configuration is a placeholder. Replace any values with relevant values for your
-# service controller project.
 ---
 annotations:
   capabilityLevel: Basic Install
@@ -13,7 +11,7 @@ description: |-
   **About Amazon Kinesis**
 
 
-  {ADD YOUR DESCRIPTION HERE}
+  You can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time. You can create data-processing applications, known as Kinesis Data Streams applications. A typical Kinesis Data Streams application reads data from a data stream as data records. These applications can use the Kinesis Client Library, and they can run on Amazon EC2 instances.
 
 
   **About the AWS Controllers for Kubernetes**
@@ -22,13 +20,11 @@ description: |-
   This controller is a component of the [AWS Controller for Kubernetes](https://github.com/aws/aws-controllers-k8s)
   project. This project is currently in **developer preview**.
 samples:
-- kind: ExampleCustomKind
-  spec: '{}'
-- kind: SecondExampleCustomKind
+- kind: Stream
   spec: '{}'
 maintainers:
 - name: "kinesis maintainer team"
   email: "ack-maintainers@amazon.com"
 links:
 - name: Amazon Kinesis Developer Resources
-  url: "{YOUR SERVICE DEVELOPER RESOURCES URL}"
+  url: https://aws.amazon.com/kinesis/developer-resources/
