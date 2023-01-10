@@ -22,6 +22,7 @@ import (
 
 // StreamSpec defines the desired state of Stream.
 type StreamSpec struct {
+
 	// A name to identify the stream. The stream name is scoped to the Amazon Web
 	// Services account used by the application that creates the stream. It is also
 	// scoped by Amazon Web Services Region. That is, two streams in two different
