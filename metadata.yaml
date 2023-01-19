@@ -1,8 +1,8 @@
 service:
-  full_name: Amazon Kinesis Data Streams Service
-  short_name: kinesis
-  link: https://docs.aws.amazon.com/kinesis/index.html
-  documentation: https://docs.aws.amazon.com/kinesis/latest/APIReference/Welcome.html
+  full_name: "Amazon Kinesis"
+  short_name: "Kinesis"
+  link: "https://aws.amazon.com/kinesis/" 
+  documentation: "https://docs.aws.amazon.com/kinesis/index.html" 
 api_versions:
   - api_version: v1alpha1
     status: available
