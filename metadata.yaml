@@ -2,7 +2,7 @@ service:
   full_name: "Amazon Kinesis"
   short_name: "Kinesis"
   link: "https://aws.amazon.com/kinesis/" 
-  documentation: "https://docs.aws.amazon.com/kinesis/index.html" 
+  documentation: "https://docs.aws.amazon.com/kinesis/" 
 api_versions:
   - api_version: v1alpha1
     status: available
