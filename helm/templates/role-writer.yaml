@@ -10,7 +10,6 @@ rules:
   - kinesis.services.k8s.aws
   resources:
   - streams
-
   verbs:
   - create
   - delete
