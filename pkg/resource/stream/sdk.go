@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/kinesis"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/kinesis"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/kinesis/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.Kinesis{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.Stream{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +77,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.DescribeStreamSummaryOutput
-	resp, err = rm.sdkapi.DescribeStreamSummaryWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeStreamSummary(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeStreamSummary", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ResourceNotFoundException" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -91,12 +92,13 @@ func (rm *resourceManager) sdkFind(
 	ko := r.ko.DeepCopy()
 
 	if resp.StreamDescriptionSummary.ConsumerCount != nil {
-		ko.Status.ConsumerCount = resp.StreamDescriptionSummary.ConsumerCount
+		consumerCountCopy := int64(*resp.StreamDescriptionSummary.ConsumerCount)
+		ko.Status.ConsumerCount = &consumerCountCopy
 	} else {
 		ko.Status.ConsumerCount = nil
 	}
-	if resp.StreamDescriptionSummary.EncryptionType != nil {
-		ko.Status.EncryptionType = resp.StreamDescriptionSummary.EncryptionType
+	if resp.StreamDescriptionSummary.EncryptionType != "" {
+		ko.Status.EncryptionType = aws.String(string(resp.StreamDescriptionSummary.EncryptionType))
 	} else {
 		ko.Status.EncryptionType = nil
 	}
@@ -107,9 +109,9 @@ func (rm *resourceManager) sdkFind(
 			if f2iter.ShardLevelMetrics != nil {
 				f2elemf0 := []*string{}
 				for _, f2elemf0iter := range f2iter.ShardLevelMetrics {
-					var f2elemf0elem string
-					f2elemf0elem = *f2elemf0iter
-					f2elemf0 = append(f2elemf0, &f2elemf0elem)
+					var f2elemf0elem *string
+					f2elemf0elem = aws.String(string(f2elemf0iter))
+					f2elemf0 = append(f2elemf0, f2elemf0elem)
 				}
 				f2elem.ShardLevelMetrics = f2elemf0
 			}
@@ -125,12 +127,14 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.KeyID = nil
 	}
 	if resp.StreamDescriptionSummary.OpenShardCount != nil {
-		ko.Status.OpenShardCount = resp.StreamDescriptionSummary.OpenShardCount
+		openShardCountCopy := int64(*resp.StreamDescriptionSummary.OpenShardCount)
+		ko.Status.OpenShardCount = &openShardCountCopy
 	} else {
 		ko.Status.OpenShardCount = nil
 	}
 	if resp.StreamDescriptionSummary.RetentionPeriodHours != nil {
-		ko.Status.RetentionPeriodHours = resp.StreamDescriptionSummary.RetentionPeriodHours
+		retentionPeriodHoursCopy := int64(*resp.StreamDescriptionSummary.RetentionPeriodHours)
+		ko.Status.RetentionPeriodHours = &retentionPeriodHoursCopy
 	} else {
 		ko.Status.RetentionPeriodHours = nil
 	}
@@ -148,8 +152,8 @@ func (rm *resourceManager) sdkFind(
 	}
 	if resp.StreamDescriptionSummary.StreamModeDetails != nil {
 		f8 := &svcapitypes.StreamModeDetails{}
-		if resp.StreamDescriptionSummary.StreamModeDetails.StreamMode != nil {
-			f8.StreamMode = resp.StreamDescriptionSummary.StreamModeDetails.StreamMode
+		if resp.StreamDescriptionSummary.StreamModeDetails.StreamMode != "" {
+			f8.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
 		}
 		ko.Spec.StreamModeDetails = f8
 	} else {
@@ -160,8 +164,8 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.Name = nil
 	}
-	if resp.StreamDescriptionSummary.StreamStatus != nil {
-		ko.Status.StreamStatus = resp.StreamDescriptionSummary.StreamStatus
+	if resp.StreamDescriptionSummary.StreamStatus != "" {
+		ko.Status.StreamStatus = aws.String(string(resp.StreamDescriptionSummary.StreamStatus))
 	} else {
 		ko.Status.StreamStatus = nil
 	}
@@ -176,8 +180,7 @@ func (rm *resourceManager) sdkFind(
 func (rm *resourceManager) requiredFieldsMissingFromReadOneInput(
 	r *resource,
 ) bool {
-	return r.ko.Spec.Name == nil
-
+	return false
 }
 
 // newDescribeRequestPayload returns SDK-specific struct for the HTTP request
@@ -187,8 +190,11 @@ func (rm *resourceManager) newDescribeRequestPayload(
 ) (*svcsdk.DescribeStreamSummaryInput, error) {
 	res := &svcsdk.DescribeStreamSummaryInput{}
 
+	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
+		res.StreamARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
+	}
 	if r.ko.Spec.Name != nil {
-		res.SetStreamName(*r.ko.Spec.Name)
+		res.StreamName = r.ko.Spec.Name
 	}
 
 	return res, nil
@@ -213,7 +219,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateStreamOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateStreamWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateStream(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateStream", err)
 	if err != nil {
 		return nil, err
@@ -235,17 +241,22 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateStreamInput{}
 
 	if r.ko.Spec.ShardCount != nil {
-		res.SetShardCount(*r.ko.Spec.ShardCount)
+		shardCountCopy0 := *r.ko.Spec.ShardCount
+		if shardCountCopy0 > math.MaxInt32 || shardCountCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field ShardCount is of type int32")
+		}
+		shardCountCopy := int32(shardCountCopy0)
+		res.ShardCount = &shardCountCopy
 	}
 	if r.ko.Spec.StreamModeDetails != nil {
-		f1 := &svcsdk.StreamModeDetails{}
+		f1 := &svcsdktypes.StreamModeDetails{}
 		if r.ko.Spec.StreamModeDetails.StreamMode != nil {
-			f1.SetStreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
+			f1.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
 		}
-		res.SetStreamModeDetails(f1)
+		res.StreamModeDetails = f1
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetStreamName(*r.ko.Spec.Name)
+		res.StreamName = r.ko.Spec.Name
 	}
 
 	return res, nil
@@ -271,7 +282,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateShardCountOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateShardCountWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateShardCount(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateShardCount", err)
 	if err != nil {
 		return nil, err
@@ -280,13 +291,21 @@ func (rm *resourceManager) sdkUpdate(
 	// the original Kubernetes object we passed to the function
 	ko := desired.ko.DeepCopy()
 
+	if ko.Status.ACKResourceMetadata == nil {
+		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+	}
+	if resp.StreamARN != nil {
+		arn := ackv1alpha1.AWSResourceName(*resp.StreamARN)
+		ko.Status.ACKResourceMetadata.ARN = &arn
+	}
 	if resp.StreamName != nil {
 		ko.Spec.Name = resp.StreamName
 	} else {
 		ko.Spec.Name = nil
 	}
 	if resp.TargetShardCount != nil {
-		ko.Spec.ShardCount = resp.TargetShardCount
+		targetShardCountCopy := int64(*resp.TargetShardCount)
+		ko.Spec.ShardCount = &targetShardCountCopy
 	} else {
 		ko.Spec.ShardCount = nil
 	}
@@ -304,12 +323,20 @@ func (rm *resourceManager) newUpdateRequestPayload(
 ) (*svcsdk.UpdateShardCountInput, error) {
 	res := &svcsdk.UpdateShardCountInput{}
 
-	res.SetScalingType("UNIFORM_SCALING")
+	res.ScalingType = "UNIFORM_SCALING"
+	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
+		res.StreamARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
+	}
 	if r.ko.Spec.Name != nil {
-		res.SetStreamName(*r.ko.Spec.Name)
+		res.StreamName = r.ko.Spec.Name
 	}
 	if r.ko.Spec.ShardCount != nil {
-		res.SetTargetShardCount(*r.ko.Spec.ShardCount)
+		targetShardCountCopy0 := *r.ko.Spec.ShardCount
+		if targetShardCountCopy0 > math.MaxInt32 || targetShardCountCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field TargetShardCount is of type int32")
+		}
+		targetShardCountCopy := int32(targetShardCountCopy0)
+		res.TargetShardCount = &targetShardCountCopy
 	}
 
 	return res, nil
@@ -331,7 +358,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteStreamOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteStreamWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteStream(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteStream", err)
 	return nil, err
 }
@@ -343,8 +370,11 @@ func (rm *resourceManager) newDeleteRequestPayload(
 ) (*svcsdk.DeleteStreamInput, error) {
 	res := &svcsdk.DeleteStreamInput{}
 
+	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
+		res.StreamARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
+	}
 	if r.ko.Spec.Name != nil {
-		res.SetStreamName(*r.ko.Spec.Name)
+		res.StreamName = r.ko.Spec.Name
 	}
 
 	return res, nil
