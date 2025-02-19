@@ -29,15 +29,19 @@ type StreamSpec struct {
 	// Amazon Web Services accounts can have the same name. Two streams in the same
 	// Amazon Web Services account but in two different Regions can also have the
 	// same name.
+
 	// +kubebuilder:validation:Required
+
 	Name *string `json:"name"`
 	// The number of shards that the stream will use. The throughput of the stream
 	// is a function of the number of shards; more shards are required for greater
 	// provisioned throughput.
+
 	ShardCount *int64 `json:"shardCount,omitempty"`
 	// Indicates the capacity mode of the data stream. Currently, in Kinesis Data
 	// Streams, you can choose between an on-demand capacity mode and a provisioned
 	// capacity mode for your data streams.
+
 	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
 }
 
@@ -48,7 +52,7 @@ type StreamStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
