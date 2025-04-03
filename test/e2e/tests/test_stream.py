@@ -59,6 +59,7 @@ class TestStream:
 
         time.sleep(CHECK_STATUS_WAIT_SECONDS)
 
+        assert cr["status"]["streamStatus"] == "ACTIVE"
         condition.assert_synced(ref)
 
         latest = stream.get(stream_name)

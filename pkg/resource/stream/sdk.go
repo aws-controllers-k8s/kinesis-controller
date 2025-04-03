@@ -171,6 +171,10 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	if !isStreamActive(r.ko.Status.StreamStatus) {
+		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
+	}
+
 	return &resource{ko}, nil
 }
 
