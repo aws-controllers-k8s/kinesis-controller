@@ -75,9 +75,12 @@ class TestStream:
         k8s.patch_custom_resource(ref, updates)
         time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
+        cr = k8s.get_resource(ref)
+
         latest = stream.get(stream_name)
         assert latest is not None
         assert int(latest['OpenShardCount']) == int(shard_count)
+        assert int(latest["OpenShardCount"]) == int(cr["status"]["openShardCount"])
 
         k8s.delete_custom_resource(ref)
 
