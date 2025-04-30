@@ -100,3 +100,15 @@ def get(stream_name):
         return resp['StreamDescriptionSummary']
     except c.exceptions.ResourceNotFoundException:
         return None
+
+def get_tags(stream_name):
+    """Return tags for the stream
+
+    If no such Stream exists, returns None.
+    """
+    c = boto3.client('kinesis')
+    try:
+        resp = c.list_tags_for_stream(StreamName=stream_name)
+        return resp['Tags']
+    except c.exceptions.ResourceNotFoundException:
+        return None

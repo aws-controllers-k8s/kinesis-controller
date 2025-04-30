@@ -61,7 +61,7 @@ func SyncResourceTags(
 	ctx context.Context,
 	client tagsClient,
 	mr metricsRecorder,
-	streamName string,
+	streamName *string,
 	latestTags map[string]*string,
 	desiredTags map[string]*string,
 ) error {
@@ -78,7 +78,7 @@ func SyncResourceTags(
 		_, err = client.RemoveTagsFromStream(
 			ctx,
 			&svcsdk.RemoveTagsFromStreamInput{
-				StreamName: &streamName,
+				StreamName: streamName,
 				TagKeys:    removed,
 			},
 		)
@@ -92,7 +92,7 @@ func SyncResourceTags(
 		_, err = client.AddTagsToStream(
 			ctx,
 			&svcsdk.AddTagsToStreamInput{
-				StreamName: &streamName,
+				StreamName: streamName,
 				Tags:       addedOrUpdated,
 			},
 		)
@@ -112,6 +112,9 @@ func computeTagsDelta(
 	desired map[string]*string,
 ) (addedOrUpdated map[string]string, removed []string) {
 	var visitedKeys []string
+	addedOrUpdated = make(map[string]string)
+	removed = make([]string, 0)
+
 mainLoop:
 	for latestKey, latestValue := range latest {
 		visitedKeys = append(visitedKeys, latestKey)

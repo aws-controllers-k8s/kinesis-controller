@@ -21,6 +21,7 @@ import pytest
 from acktest.k8s import condition
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
+from acktest import tags
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_kinesis_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e import stream
@@ -67,10 +68,33 @@ class TestStream:
         assert latest['StreamName'] == stream_name
         assert int(latest['OpenShardCount']) == int(shard_count)
 
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = stream.get_tags(stream_name)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": key, "Value": value}  for key, value in user_tags.items()]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )
+
         # Test the code paths that update shard count
         shard_count = "2"
         updates = {
-            "spec": {"shardCount": int(shard_count)},
+            "spec": {
+                "shardCount": int(shard_count),
+                "tags":
+                    {
+                        "another": "here",
+                    }
+
+            },
+
         }
         k8s.patch_custom_resource(ref, updates)
         time.sleep(MODIFY_WAIT_AFTER_SECONDS)
@@ -81,6 +105,23 @@ class TestStream:
         assert latest is not None
         assert int(latest['OpenShardCount']) == int(shard_count)
         assert int(latest["OpenShardCount"]) == int(cr["status"]["openShardCount"])
+
+        # validate tags
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = stream.get_tags(stream_name)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": key, "Value": value}  for key, value in user_tags.items()]
+
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )
 
         k8s.delete_custom_resource(ref)
 

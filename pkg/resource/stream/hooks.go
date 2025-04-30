@@ -15,6 +15,7 @@ package stream
 
 import (
 	"context"
+
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 
 	util "github.com/aws-controllers-k8s/kinesis-controller/pkg/resource/tags"
@@ -37,5 +38,5 @@ func (rm *resourceManager) syncTags(
 	desired *resource,
 	latest *resource,
 ) (err error) {
-	return util.SyncResourceTags(ctx, rm.sdkapi, rm.metrics, string(*latest.ko.Spec.Name), desired.ko.Spec.Tags, latest.ko.Spec.Tags)
+	return util.SyncResourceTags(ctx, rm.sdkapi, rm.metrics, latest.ko.Spec.Name, desired.ko.Spec.Tags, latest.ko.Spec.Tags)
 }
