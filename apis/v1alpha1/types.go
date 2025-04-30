@@ -116,3 +116,8 @@ type StreamSummary struct {
 	StreamName        *string            `json:"streamName,omitempty"`
 	StreamStatus      *string            `json:"streamStatus,omitempty"`
 }
+
+// Metadata assigned to the stream, consisting of a key-value pair.
+type Tag struct {
+	Value *string `json:"value,omitempty"`
+}

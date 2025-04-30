@@ -39,15 +39,19 @@ resources:
         template_path: hooks/stream/sdk_read_one_post_set_output.go.tpl
       sdk_update_post_set_output:
         template_path: hooks/stream/sdk_update_post_set_output.go.tpl
+      sdk_create_post_set_output:
+        template_path: hooks/stream/sdk_create_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/stream/sdk_update_pre_build_request.go.tpl
     exceptions:
       errors:
         404:
           code: ResourceNotFoundException
-    tags:
-      # TODO(jaypipes): Stream actually supports tags via separate API calls,
-      # just not tag on create... add support for this later on.
-      ignore: true
     fields:
+      Tags:
+        from:
+          operation: AddTagsToStream
+          path: Tags
       Name:
         is_primary_key: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because

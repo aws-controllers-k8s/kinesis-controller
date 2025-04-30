@@ -39,6 +39,8 @@ type StreamSpec struct {
 	// Streams, you can choose between an on-demand capacity mode and a provisioned
 	// capacity mode for your data streams.
 	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
+	// A set of up to 10 key-value pairs to use to create the tags.
+	Tags map[string]*string `json:"tags,omitempty"`
 }
 
 // StreamStatus defines the observed state of Stream

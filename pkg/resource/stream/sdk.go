@@ -171,6 +171,13 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+
+	// We need to get the tags that are in the AWS resource
+	ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	if !isStreamActive(r.ko.Status.StreamStatus) {
 		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
 	}
@@ -233,6 +240,9 @@ func (rm *resourceManager) sdkCreate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
+	if ko.Spec.Tags != nil {
+		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
+	}
 	return &resource{ko}, nil
 }
 
@@ -279,6 +289,19 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+	if delta.DifferentAt("Spec.Tags") {
+		err := rm.syncTags(
+			ctx,
+			latest,
+			desired,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags") {
+		return desired, nil
+	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err
