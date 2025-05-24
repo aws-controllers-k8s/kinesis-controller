@@ -47,6 +47,8 @@ spec:
                   Amazon Web Services accounts can have the same name. Two streams in the same
                   Amazon Web Services account but in two different Regions can also have the
                   same name.
+
+                  Regex Pattern: `^[a-zA-Z0-9_.-]+$`
                 type: string
               shardCount:
                 description: |-
