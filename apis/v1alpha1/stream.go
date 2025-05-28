@@ -29,6 +29,8 @@ type StreamSpec struct {
 	// Amazon Web Services accounts can have the same name. Two streams in the same
 	// Amazon Web Services account but in two different Regions can also have the
 	// same name.
+	//
+	// Regex Pattern: `^[a-zA-Z0-9_.-]+$`
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
 	// The number of shards that the stream will use. The throughput of the stream
