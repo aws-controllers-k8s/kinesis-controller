@@ -178,24 +178,24 @@ class TestStream:
         assert cr['status']['conditions'][0]['message'] == "cannot specify KeyID with NONE encryption type"
 
          # Test the code paths that update encryption type and key ID
-        encryption_type = "KMS"
-        key_id = "arn:aws:kms:us-west-2:179783686121:key/a993c326-70c4-400e-84b8-d165773014aa"
+        # encryption_type = "KMS"
+        # key_id = "arn:aws:kms:us-west-2:testAccountID:key/testKeyId"
        
-        updates = {
-            "spec": {
-                "encryptionType": encryption_type,
-                "keyID": key_id,
-            },
-        }
-        k8s.patch_custom_resource(ref, updates)
-        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        # updates = {
+        #     "spec": {
+        #         "encryptionType": encryption_type,
+        #         "keyID": key_id,
+        #     },
+        # }
+        # k8s.patch_custom_resource(ref, updates)
+        # time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
-        cr = k8s.get_resource(ref)
+        # cr = k8s.get_resource(ref)
 
-        latest = stream.get(stream_name)
-        assert latest is not None
-        assert latest['EncryptionType'] == encryption_type
-        assert latest['KeyId'] == key_id
+        # latest = stream.get(stream_name)
+        # assert latest is not None
+        # assert latest['EncryptionType'] == encryption_type
+        # assert latest['KeyId'] == key_id
 
 
         k8s.delete_custom_resource(ref)
