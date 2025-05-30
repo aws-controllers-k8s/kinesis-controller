@@ -111,6 +111,7 @@ class TestStream:
             expected=user_tags,
             actual=response_tags,
         )
+        
         # Test the code path that sets RetentionPeriodHours to 23
         retention_hours = "23"
         updates = {
@@ -123,27 +124,6 @@ class TestStream:
 
         cr = k8s.get_resource(ref)
         assert cr['status']['conditions'][0]['message'] == "the desired retention period must be between 24 and 8760 hours"
-
-       
-        # Test the code paths that update encryption type and key ID
-        encryption_type = "NONE"
-        key_id = ""
-        retention_hours = "48" # reset the retention period to 48 hours
-       
-        updates = {
-            "spec": {
-                "encryptionType": encryption_type,
-                "keyID": key_id,
-                "retentionPeriodHours": int(retention_hours),
-            },
-        }
-        k8s.patch_custom_resource(ref, updates)
-        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
-
-        cr = k8s.get_resource(ref)
-        latest = stream.get(stream_name)
-        assert latest is not None
-        assert latest['EncryptionType'] == encryption_type
 
         # Test the code paths that update encryption type to KMS and without key ID
         encryption_type = "KMS"
@@ -178,24 +158,42 @@ class TestStream:
         assert cr['status']['conditions'][0]['message'] == "cannot specify KeyID with NONE encryption type"
 
          # Test the code paths that update encryption type and key ID
-        # encryption_type = "KMS"
-        # key_id = "arn:aws:kms:us-west-2:testAccountID:key/testKeyId"
+        encryption_type = "KMS"
+        key_id = "arn:aws:kms:us-west-2:testAccountId:alias/aws/kinesis"
        
-        # updates = {
-        #     "spec": {
-        #         "encryptionType": encryption_type,
-        #         "keyID": key_id,
-        #     },
-        # }
-        # k8s.patch_custom_resource(ref, updates)
-        # time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        updates = {
+            "spec": {
+                "encryptionType": encryption_type,
+                "keyID": key_id,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
-        # cr = k8s.get_resource(ref)
+        cr = k8s.get_resource(ref)
 
-        # latest = stream.get(stream_name)
-        # assert latest is not None
-        # assert latest['EncryptionType'] == encryption_type
-        # assert latest['KeyId'] == key_id
+        latest = stream.get(stream_name)
+        assert latest is not None
+        assert latest['EncryptionType'] == encryption_type
+        assert latest['KeyId'] == key_id
+
+        # Test the code paths that update encryption type and key ID
+        encryption_type = "NONE"
+        key_id = ""
+       
+        updates = {
+            "spec": {
+                "encryptionType": encryption_type,
+                "keyID": key_id,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        latest = stream.get(stream_name)
+        assert latest is not None
+        assert latest['EncryptionType'] == encryption_type
 
 
         k8s.delete_custom_resource(ref)
