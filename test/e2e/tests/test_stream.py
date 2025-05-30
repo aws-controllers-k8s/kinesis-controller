@@ -39,10 +39,13 @@ class TestStream:
     def test_crud(self):
         stream_name = random_suffix_name("my-simple-stream", 24)
         shard_count = "1"
+        retention_hours = "48"
 
         replacements = REPLACEMENT_VALUES.copy()
         replacements['STREAM_NAME'] = stream_name
         replacements['SHARD_COUNT'] = shard_count
+        replacements['RETENTION_PERIOD_HOURS'] = retention_hours
+        
 
         resource_data = load_kinesis_resource(
             "stream_simple",
@@ -67,34 +70,19 @@ class TestStream:
         assert latest is not None
         assert latest['StreamName'] == stream_name
         assert int(latest['OpenShardCount']) == int(shard_count)
+        assert int(latest['RetentionPeriodHours']) == int(retention_hours)
 
-        assert 'tags' in cr['spec']
-        user_tags = cr['spec']['tags']
-
-        response_tags = stream.get_tags(stream_name)
-
-        tags.assert_ack_system_tags(
-            tags=response_tags,
-        )
-
-        user_tags = [{"Key": key, "Value": value}  for key, value in user_tags.items()]
-        tags.assert_equal_without_ack_tags(
-            expected=user_tags,
-            actual=response_tags,
-        )
-
-        # Test the code paths that update shard count
+        # Test the code paths that update shard count, retention hours, and tags
         shard_count = "2"
+        retention_hours = "72"
         updates = {
             "spec": {
                 "shardCount": int(shard_count),
-                "tags":
-                    {
-                        "another": "here",
-                    }
-
+                "retentionPeriodHours": int(retention_hours),
+                "tags": {
+                    "another": "here",
+                }
             },
-
         }
         k8s.patch_custom_resource(ref, updates)
         time.sleep(MODIFY_WAIT_AFTER_SECONDS)
@@ -105,6 +93,7 @@ class TestStream:
         assert latest is not None
         assert int(latest['OpenShardCount']) == int(shard_count)
         assert int(latest["OpenShardCount"]) == int(cr["status"]["openShardCount"])
+        assert int(latest['RetentionPeriodHours']) == int(retention_hours)
 
         # validate tags
         assert 'tags' in cr['spec']
@@ -116,12 +105,96 @@ class TestStream:
             tags=response_tags,
         )
 
-        user_tags = [{"Key": key, "Value": value}  for key, value in user_tags.items()]
+        user_tags = [{"Key": key, "Value": value} for key, value in user_tags.items()]
 
         tags.assert_equal_without_ack_tags(
             expected=user_tags,
             actual=response_tags,
         )
+        
+        # Test the code path that sets RetentionPeriodHours to 23
+        retention_hours = "23"
+        updates = {
+            "spec": {
+                "retentionPeriodHours": int(retention_hours),
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        assert cr['status']['conditions'][0]['message'] == "the desired retention period must be between 24 and 8760 hours"
+
+        # Test the code paths that update encryption type to KMS and without key ID
+        encryption_type = "KMS"
+        key_id = ""
+       
+        updates = {
+            "spec": {
+                "encryptionType": encryption_type,
+                "keyID": key_id,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        assert cr['status']['conditions'][0]['message'] == "KMS encryption type requires a KeyID"
+
+        # Test the code paths that update encryption type to NONE and with key ID
+        encryption_type = ""
+        key_id = "arn:aws:kms:testRegion:testAccountId:key/testKeyId"
+       
+        updates = {
+            "spec": {
+                "encryptionType": encryption_type,
+                "keyID": key_id,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        assert cr['status']['conditions'][0]['message'] == "cannot specify KeyID with NONE encryption type"
+
+         # Test the code paths that update encryption type and key ID
+        encryption_type = "KMS"
+        key_id = "arn:aws:kms:us-west-2:testAccountId:alias/aws/kinesis"
+       
+        updates = {
+            "spec": {
+                "encryptionType": encryption_type,
+                "keyID": key_id,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+
+        latest = stream.get(stream_name)
+        assert latest is not None
+        assert latest['EncryptionType'] == encryption_type
+        assert latest['KeyId'] == key_id
+
+        # Test the code paths that update encryption type and key ID
+        encryption_type = "NONE"
+        key_id = ""
+       
+        updates = {
+            "spec": {
+                "encryptionType": encryption_type,
+                "keyID": key_id,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        latest = stream.get(stream_name)
+        assert latest is not None
+        assert latest['EncryptionType'] == encryption_type
+
 
         k8s.delete_custom_resource(ref)
 

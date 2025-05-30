@@ -5,5 +5,8 @@ metadata:
 spec:
   name: $STREAM_NAME
   shardCount: $SHARD_COUNT
+  encryptionType: $ENCRYPTION_TYPE
+  retentionPeriodHours: $RETENTION_PERIOD_HOURS
+  keyID: $KEY_ID
   tags:
     hello: world
