@@ -98,9 +98,9 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.ConsumerCount = nil
 	}
 	if resp.StreamDescriptionSummary.EncryptionType != "" {
-		ko.Status.EncryptionType = aws.String(string(resp.StreamDescriptionSummary.EncryptionType))
+		ko.Spec.EncryptionType = aws.String(string(resp.StreamDescriptionSummary.EncryptionType))
 	} else {
-		ko.Status.EncryptionType = nil
+		ko.Spec.EncryptionType = nil
 	}
 	if resp.StreamDescriptionSummary.EnhancedMonitoring != nil {
 		f2 := []*svcapitypes.EnhancedMetrics{}
@@ -122,9 +122,9 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.EnhancedMonitoring = nil
 	}
 	if resp.StreamDescriptionSummary.KeyId != nil {
-		ko.Status.KeyID = resp.StreamDescriptionSummary.KeyId
+		ko.Spec.KeyID = resp.StreamDescriptionSummary.KeyId
 	} else {
-		ko.Status.KeyID = nil
+		ko.Spec.KeyID = nil
 	}
 	if resp.StreamDescriptionSummary.OpenShardCount != nil {
 		openShardCountCopy := int64(*resp.StreamDescriptionSummary.OpenShardCount)
@@ -134,9 +134,9 @@ func (rm *resourceManager) sdkFind(
 	}
 	if resp.StreamDescriptionSummary.RetentionPeriodHours != nil {
 		retentionPeriodHoursCopy := int64(*resp.StreamDescriptionSummary.RetentionPeriodHours)
-		ko.Status.RetentionPeriodHours = &retentionPeriodHoursCopy
+		ko.Spec.RetentionPeriodHours = &retentionPeriodHoursCopy
 	} else {
-		ko.Status.RetentionPeriodHours = nil
+		ko.Spec.RetentionPeriodHours = nil
 	}
 	if ko.Status.ACKResourceMetadata == nil {
 		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
@@ -299,7 +299,22 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+
+	if delta.DifferentAt("Spec.EncryptionType") {
+		err := rm.updateStreamEncryption(ctx, latest, desired)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if delta.DifferentAt("Spec.RetentionPeriodHours") {
+		err := rm.updateRetentionPeriodHours(ctx, latest, desired)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Tags", "Spec.RetentionPeriodHours", "Spec.EncryptionType") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

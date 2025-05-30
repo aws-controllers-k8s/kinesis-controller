@@ -62,7 +62,6 @@ resources:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.ConsumerCount
       EncryptionType:
-        is_read_only: true
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.EncryptionType
@@ -72,7 +71,6 @@ resources:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.EnhancedMonitoring
       KeyId:
-        is_read_only: true
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.KeyId
@@ -82,7 +80,6 @@ resources:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.OpenShardCount
       RetentionPeriodHours:
-        is_read_only: true
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.RetentionPeriodHours

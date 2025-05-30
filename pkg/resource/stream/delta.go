@@ -43,11 +43,32 @@ func newResourceDelta(
 		return delta
 	}
 
+	if ackcompare.HasNilDifference(a.ko.Spec.EncryptionType, b.ko.Spec.EncryptionType) {
+		delta.Add("Spec.EncryptionType", a.ko.Spec.EncryptionType, b.ko.Spec.EncryptionType)
+	} else if a.ko.Spec.EncryptionType != nil && b.ko.Spec.EncryptionType != nil {
+		if *a.ko.Spec.EncryptionType != *b.ko.Spec.EncryptionType {
+			delta.Add("Spec.EncryptionType", a.ko.Spec.EncryptionType, b.ko.Spec.EncryptionType)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.KeyID, b.ko.Spec.KeyID) {
+		delta.Add("Spec.KeyID", a.ko.Spec.KeyID, b.ko.Spec.KeyID)
+	} else if a.ko.Spec.KeyID != nil && b.ko.Spec.KeyID != nil {
+		if *a.ko.Spec.KeyID != *b.ko.Spec.KeyID {
+			delta.Add("Spec.KeyID", a.ko.Spec.KeyID, b.ko.Spec.KeyID)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.RetentionPeriodHours, b.ko.Spec.RetentionPeriodHours) {
+		delta.Add("Spec.RetentionPeriodHours", a.ko.Spec.RetentionPeriodHours, b.ko.Spec.RetentionPeriodHours)
+	} else if a.ko.Spec.RetentionPeriodHours != nil && b.ko.Spec.RetentionPeriodHours != nil {
+		if *a.ko.Spec.RetentionPeriodHours != *b.ko.Spec.RetentionPeriodHours {
+			delta.Add("Spec.RetentionPeriodHours", a.ko.Spec.RetentionPeriodHours, b.ko.Spec.RetentionPeriodHours)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.ShardCount, b.ko.Spec.ShardCount) {
