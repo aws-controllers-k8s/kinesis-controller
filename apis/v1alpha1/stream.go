@@ -23,6 +23,31 @@ import (
 // StreamSpec defines the desired state of Stream.
 type StreamSpec struct {
 
+	// The encryption type to use. The only valid value is KMS.
+	EncryptionType *string `json:"encryptionType,omitempty"`
+	// If this parameter is unset (null) or if you set it to false, and the stream
+	// has registered consumers, the call to DeleteStream fails with a ResourceInUseException.
+	EnforceConsumerDeletion *bool `json:"enforceConsumerDeletion,omitempty"`
+	// The GUID for the customer-managed Amazon Web Services KMS key to use for
+	// encryption. This value can be a globally unique identifier, a fully specified
+	// Amazon Resource Name (ARN) to either an alias or a key, or an alias name
+	// prefixed by "alias/".You can also use a master key owned by Kinesis Data
+	// Streams by specifying the alias aws/kinesis.
+	//
+	//   - Key ARN example: arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
+	//
+	//   - Alias ARN example: arn:aws:kms:us-east-1:123456789012:alias/MyAliasName
+	//
+	//   - Globally unique key ID example: 12345678-1234-1234-1234-123456789012
+	//
+	//   - Alias name example: alias/MyAliasName
+	//
+	//   - Master key owned by Kinesis Data Streams: alias/aws/kinesis
+	KeyID  *string                                  `json:"keyID,omitempty"`
+	KeyRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"keyRef,omitempty"`
+	// The maximum record size of a single record in kibibyte (KiB) that you can
+	// write to, and read from a stream.
+	MaxRecordSizeInKiB *int64 `json:"maxRecordSizeInKiB,omitempty"`
 	// A name to identify the stream. The stream name is scoped to the Amazon Web
 	// Services account used by the application that creates the stream. It is also
 	// scoped by Amazon Web Services Region. That is, two streams in two different
@@ -33,16 +58,49 @@ type StreamSpec struct {
 	// Regex Pattern: `^[a-zA-Z0-9_.-]+$`
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
+	// The new retention period of the stream, in hours. Must be more than the current
+	// retention period.
+	RetentionPeriodHours *int64 `json:"retentionPeriodHours,omitempty"`
 	// The number of shards that the stream will use. The throughput of the stream
 	// is a function of the number of shards; more shards are required for greater
 	// provisioned throughput.
 	ShardCount *int64 `json:"shardCount,omitempty"`
+	// List of shard-level metrics to enable.
+	//
+	// The following are the valid shard-level metrics. The value "ALL" enables
+	// every metric.
+	//
+	//   - IncomingBytes
+	//
+	//   - IncomingRecords
+	//
+	//   - OutgoingBytes
+	//
+	//   - OutgoingRecords
+	//
+	//   - WriteProvisionedThroughputExceeded
+	//
+	//   - ReadProvisionedThroughputExceeded
+	//
+	//   - IteratorAgeMilliseconds
+	//
+	//   - ALL
+	//
+	// For more information, see Monitoring the Amazon Kinesis Data Streams Service
+	// with Amazon CloudWatch (https://docs.aws.amazon.com/kinesis/latest/dev/monitoring-with-cloudwatch.html)
+	// in the Amazon Kinesis Data Streams Developer Guide.
+	ShardLevelMetrics []*string `json:"shardLevelMetrics,omitempty"`
 	// Indicates the capacity mode of the data stream. Currently, in Kinesis Data
 	// Streams, you can choose between an on-demand capacity mode and a provisioned
 	// capacity mode for your data streams.
 	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
-	// A set of up to 10 key-value pairs to use to create the tags.
+	// A set of up to 50 key-value pairs to use to create the tags. A tag consists
+	// of a required key and an optional value. You can add up to 50 tags per resource.
 	Tags map[string]*string `json:"tags,omitempty"`
+	// The target warm throughput in MB/s that the stream should be scaled to handle.
+	// This represents the throughput capacity that will be immediately available
+	// for write operations.
+	WarmThroughputMiBps *int64 `json:"warmThroughputMiBps,omitempty"`
 }
 
 // StreamStatus defines the observed state of Stream
@@ -61,39 +119,12 @@ type StreamStatus struct {
 	// The number of enhanced fan-out consumers registered with the stream.
 	// +kubebuilder:validation:Optional
 	ConsumerCount *int64 `json:"consumerCount,omitempty"`
-	// The encryption type used. This value is one of the following:
-	//
-	//    * KMS
-	//
-	//    * NONE
-	// +kubebuilder:validation:Optional
-	EncryptionType *string `json:"encryptionType,omitempty"`
 	// Represents the current enhanced monitoring settings of the stream.
 	// +kubebuilder:validation:Optional
 	EnhancedMonitoring []*EnhancedMetrics `json:"enhancedMonitoring,omitempty"`
-	// The GUID for the customer-managed Amazon Web Services KMS key to use for
-	// encryption. This value can be a globally unique identifier, a fully specified
-	// ARN to either an alias or a key, or an alias name prefixed by "alias/".You
-	// can also use a master key owned by Kinesis Data Streams by specifying the
-	// alias aws/kinesis.
-	//
-	//    * Key ARN example: arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
-	//
-	//    * Alias ARN example: arn:aws:kms:us-east-1:123456789012:alias/MyAliasName
-	//
-	//    * Globally unique key ID example: 12345678-1234-1234-1234-123456789012
-	//
-	//    * Alias name example: alias/MyAliasName
-	//
-	//    * Master key owned by Kinesis Data Streams: alias/aws/kinesis
-	// +kubebuilder:validation:Optional
-	KeyID *string `json:"keyID,omitempty"`
 	// The number of open shards in the stream.
 	// +kubebuilder:validation:Optional
 	OpenShardCount *int64 `json:"openShardCount,omitempty"`
-	// The current retention period, in hours.
-	// +kubebuilder:validation:Optional
-	RetentionPeriodHours *int64 `json:"retentionPeriodHours,omitempty"`
 	// The approximate time that the stream was created.
 	// +kubebuilder:validation:Optional
 	StreamCreationTimestamp *metav1.Time `json:"streamCreationTimestamp,omitempty"`

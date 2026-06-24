@@ -128,3 +128,66 @@ class TestStream:
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
 
         stream.wait_until_deleted(stream_name)
+
+    def test_crud_config(self):
+        stream_name = random_suffix_name("my-config-stream", 24)
+        shard_count = "1"
+        retention_hours = "48"
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = shard_count
+        replacements['RETENTION_PERIOD_HOURS'] = retention_hours
+
+        resource_data = load_kinesis_resource(
+            "stream_config",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+
+        # The properties applied post-create are serialized by Kinesis, so poll
+        # for the fully-converged end state rather than asserting after a sleep.
+        stream.wait_until(
+            stream_name,
+            lambda s: int(s.get('RetentionPeriodHours', 0)) == int(retention_hours)
+            and s.get('EncryptionType') == "KMS"
+            and {"IncomingBytes", "OutgoingBytes"}.issubset(
+                {m for g in s.get('EnhancedMonitoring', []) for m in g.get('ShardLevelMetrics', [])}
+            ),
+            message="initial retention/encryption/metrics to be applied",
+        )
+        condition.assert_synced(ref)
+
+        # Update retention period and shard-level metrics, and disable encryption.
+        updates = {
+            "spec": {
+                "retentionPeriodHours": 72,
+                "shardLevelMetrics": ["IncomingRecords"],
+                "encryptionType": "NONE",
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(CHECK_STATUS_WAIT_SECONDS)
+
+        stream.wait_until(
+            stream_name,
+            lambda s: int(s.get('RetentionPeriodHours', 0)) == 72
+            and s.get('EncryptionType', "NONE") == "NONE"
+            and stream.get_shard_level_metrics(stream_name) == {"IncomingRecords"},
+            message="updated retention/encryption/metrics to be applied",
+        )
+        condition.assert_synced(ref)
+
+        k8s.delete_custom_resource(ref)
+
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+
+        stream.wait_until_deleted(stream_name)

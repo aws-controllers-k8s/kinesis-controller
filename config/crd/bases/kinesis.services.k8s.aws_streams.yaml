@@ -39,6 +39,55 @@ spec:
           spec:
             description: StreamSpec defines the desired state of Stream.
             properties:
+              encryptionType:
+                description: The encryption type to use. The only valid value is KMS.
+                type: string
+              enforceConsumerDeletion:
+                description: |-
+                  If this parameter is unset (null) or if you set it to false, and the stream
+                  has registered consumers, the call to DeleteStream fails with a ResourceInUseException.
+                type: boolean
+              keyID:
+                description: |-
+                  The GUID for the customer-managed Amazon Web Services KMS key to use for
+                  encryption. This value can be a globally unique identifier, a fully specified
+                  Amazon Resource Name (ARN) to either an alias or a key, or an alias name
+                  prefixed by "alias/".You can also use a master key owned by Kinesis Data
+                  Streams by specifying the alias aws/kinesis.
+
+                     * Key ARN example: arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
+
+                     * Alias ARN example: arn:aws:kms:us-east-1:123456789012:alias/MyAliasName
+
+                     * Globally unique key ID example: 12345678-1234-1234-1234-123456789012
+
+                     * Alias name example: alias/MyAliasName
+
+                     * Master key owned by Kinesis Data Streams: alias/aws/kinesis
+                type: string
+              keyRef:
+                description: "AWSResourceReferenceWrapper provides a wrapper around
+                  *AWSResourceReference\ntype to provide more user friendly syntax
+                  for references using 'from' field\nEx:\nAPIIDRef:\n\n\tfrom:\n\t
+                  \ name: my-api"
+                properties:
+                  from:
+                    description: |-
+                      AWSResourceReference provides all the values necessary to reference another
+                      k8s resource for finding the identifier(Id/ARN/Name)
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
+                type: object
+              maxRecordSizeInKiB:
+                description: |-
+                  The maximum record size of a single record in kibibyte (KiB) that you can
+                  write to, and read from a stream.
+                format: int64
+                type: integer
               name:
                 description: |-
                   A name to identify the stream. The stream name is scoped to the Amazon Web
@@ -50,6 +99,12 @@ spec:
 
                   Regex Pattern: `^[a-zA-Z0-9_.-]+$`
                 type: string
+              retentionPeriodHours:
+                description: |-
+                  The new retention period of the stream, in hours. Must be more than the current
+                  retention period.
+                format: int64
+                type: integer
               shardCount:
                 description: |-
                   The number of shards that the stream will use. The throughput of the stream
@@ -57,6 +112,35 @@ spec:
                   provisioned throughput.
                 format: int64
                 type: integer
+              shardLevelMetrics:
+                description: |-
+                  List of shard-level metrics to enable.
+
+                  The following are the valid shard-level metrics. The value "ALL" enables
+                  every metric.
+
+                     * IncomingBytes
+
+                     * IncomingRecords
+
+                     * OutgoingBytes
+
+                     * OutgoingRecords
+
+                     * WriteProvisionedThroughputExceeded
+
+                     * ReadProvisionedThroughputExceeded
+
+                     * IteratorAgeMilliseconds
+
+                     * ALL
+
+                  For more information, see Monitoring the Amazon Kinesis Data Streams Service
+                  with Amazon CloudWatch (https://docs.aws.amazon.com/kinesis/latest/dev/monitoring-with-cloudwatch.html)
+                  in the Amazon Kinesis Data Streams Developer Guide.
+                items:
+                  type: string
+                type: array
               streamModeDetails:
                 description: |-
                   Indicates the capacity mode of the data stream. Currently, in Kinesis Data
@@ -69,9 +153,17 @@ spec:
               tags:
                 additionalProperties:
                   type: string
-                description: A set of up to 10 key-value pairs to use to create the
-                  tags.
+                description: |-
+                  A set of up to 50 key-value pairs to use to create the tags. A tag consists
+                  of a required key and an optional value. You can add up to 50 tags per resource.
                 type: object
+              warmThroughputMiBps:
+                description: |-
+                  The target warm throughput in MB/s that the stream should be scaled to handle.
+                  This represents the throughput capacity that will be immediately available
+                  for write operations.
+                format: int64
+                type: integer
             required:
             - name
             type: object
@@ -151,14 +243,6 @@ spec:
                   the stream.
                 format: int64
                 type: integer
-              encryptionType:
-                description: |-
-                  The encryption type used. This value is one of the following:
-
-                     * KMS
-
-                     * NONE
-                type: string
               enhancedMonitoring:
                 description: Represents the current enhanced monitoring settings of
                   the stream.
@@ -171,30 +255,8 @@ spec:
                       type: array
                   type: object
                 type: array
-              keyID:
-                description: |-
-                  The GUID for the customer-managed Amazon Web Services KMS key to use for
-                  encryption. This value can be a globally unique identifier, a fully specified
-                  ARN to either an alias or a key, or an alias name prefixed by "alias/".You
-                  can also use a master key owned by Kinesis Data Streams by specifying the
-                  alias aws/kinesis.
-
-                     * Key ARN example: arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
-
-                     * Alias ARN example: arn:aws:kms:us-east-1:123456789012:alias/MyAliasName
-
-                     * Globally unique key ID example: 12345678-1234-1234-1234-123456789012
-
-                     * Alias name example: alias/MyAliasName
-
-                     * Master key owned by Kinesis Data Streams: alias/aws/kinesis
-                type: string
               openShardCount:
                 description: The number of open shards in the stream.
-                format: int64
-                type: integer
-              retentionPeriodHours:
-                description: The current retention period, in hours.
                 format: int64
                 type: integer
               streamCreationTimestamp:

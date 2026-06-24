@@ -54,6 +54,34 @@ resources:
           path: Tags
       Name:
         is_primary_key: true
+      RetentionPeriodHours:
+        from:
+          operation: IncreaseStreamRetentionPeriod
+          path: RetentionPeriodHours
+      ShardLevelMetrics:
+        from:
+          operation: EnableEnhancedMonitoring
+          path: ShardLevelMetrics
+      EncryptionType:
+        from:
+          operation: StartStreamEncryption
+          path: EncryptionType
+      KeyId:
+        from:
+          operation: StartStreamEncryption
+          path: KeyId
+        compare:
+          is_ignored: true
+        references:
+          service_name: kms
+          resource: Key
+          path: Status.KeyID
+      EnforceConsumerDeletion:
+        from:
+          operation: DeleteStream
+          path: EnforceConsumerDeletion
+        compare:
+          is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because
       # the CreateStream output shape has no members at all...
       ConsumerCount:
@@ -61,31 +89,16 @@ resources:
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.ConsumerCount
-      EncryptionType:
-        is_read_only: true
-        from:
-          operation: DescribeStreamSummary
-          path: StreamDescriptionSummary.EncryptionType
       EnhancedMonitoring:
         is_read_only: true
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.EnhancedMonitoring
-      KeyId:
-        is_read_only: true
-        from:
-          operation: DescribeStreamSummary
-          path: StreamDescriptionSummary.KeyId
       OpenShardCount:
         is_read_only: true
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.OpenShardCount
-      RetentionPeriodHours:
-        is_read_only: true
-        from:
-          operation: DescribeStreamSummary
-          path: StreamDescriptionSummary.RetentionPeriodHours
       StreamCreationTimestamp:
         is_read_only: true
         from:

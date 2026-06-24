@@ -112,3 +112,43 @@ def get_tags(stream_name):
         return resp['Tags']
     except c.exceptions.ResourceNotFoundException:
         return None
+
+
+def get_shard_level_metrics(stream_name):
+    """Return the flat set of enabled shard-level metric names for the stream."""
+    summary = get(stream_name)
+    if summary is None:
+        return set()
+    metrics = set()
+    for group in summary.get('EnhancedMonitoring', []):
+        metrics.update(group.get('ShardLevelMetrics', []))
+    return metrics
+
+
+def wait_until(
+        stream_name: str,
+        predicate,
+        timeout_seconds: int = 60*10,
+        interval_seconds: int = 15,
+        message: str = "Stream to reach desired state",
+    ) -> None:
+    """Polls DescribeStreamSummary until ``predicate(summary)`` returns True.
+
+    Several Stream properties (retention, encryption, enhanced monitoring) are
+    applied through dedicated API calls that briefly put the stream into the
+    UPDATING state; Kinesis serializes these, so the controller may need several
+    reconcile passes to converge. Polling the desired end-state - rather than
+    asserting after a fixed sleep - tolerates that.
+
+    Raises:
+        pytest.fail upon timeout
+    """
+    now = datetime.datetime.now()
+    timeout = now + datetime.timedelta(seconds=timeout_seconds)
+    while True:
+        summary = get(stream_name)
+        if summary is not None and predicate(summary):
+            break
+        if datetime.datetime.now() >= timeout:
+            pytest.fail(f"Timed out waiting for {message}")
+        time.sleep(interval_seconds)

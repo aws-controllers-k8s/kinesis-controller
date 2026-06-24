@@ -46,6 +46,14 @@ type EnhancedMetrics struct {
 	ShardLevelMetrics []*string `json:"shardLevelMetrics,omitempty"`
 }
 
+// Represents the current status of minimum throughput billing commitment for
+// an account.
+type MinimumThroughputBillingCommitmentOutput struct {
+	EarliestAllowedEndAt *metav1.Time `json:"earliestAllowedEndAt,omitempty"`
+	EndedAt              *metav1.Time `json:"endedAt,omitempty"`
+	StartedAt            *metav1.Time `json:"startedAt,omitempty"`
+}
+
 // The unit of data of the Kinesis data stream, which is composed of a sequence
 // number, a partition key, and a data blob.
 type Record struct {
@@ -86,16 +94,22 @@ type StreamDescriptionSummary struct {
 	EncryptionType          *string            `json:"encryptionType,omitempty"`
 	EnhancedMonitoring      []*EnhancedMetrics `json:"enhancedMonitoring,omitempty"`
 	KeyID                   *string            `json:"keyID,omitempty"`
+	MaxRecordSizeInKiB      *int64             `json:"maxRecordSizeInKiB,omitempty"`
 	OpenShardCount          *int64             `json:"openShardCount,omitempty"`
 	RetentionPeriodHours    *int64             `json:"retentionPeriodHours,omitempty"`
 	StreamARN               *string            `json:"streamARN,omitempty"`
 	StreamCreationTimestamp *metav1.Time       `json:"streamCreationTimestamp,omitempty"`
+	StreamID                *string            `json:"streamID,omitempty"`
 	// Specifies the capacity mode to which you want to set your data stream. Currently,
 	// in Kinesis Data Streams, you can choose between an on-demand capacity mode
 	// and a provisioned capacity mode for your data streams.
 	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
 	StreamName        *string            `json:"streamName,omitempty"`
 	StreamStatus      *string            `json:"streamStatus,omitempty"`
+	// Represents the warm throughput configuration on the stream. This is only
+	// present for On-Demand Kinesis Data Streams in accounts that have MinimumThroughputBillingCommitment
+	// enabled.
+	WarmThroughput *WarmThroughputObject `json:"warmThroughput,omitempty"`
 }
 
 // Specifies the capacity mode to which you want to set your data stream. Currently,
@@ -117,7 +131,15 @@ type StreamSummary struct {
 	StreamStatus      *string            `json:"streamStatus,omitempty"`
 }
 
-// Metadata assigned to the stream, consisting of a key-value pair.
+// Metadata assigned to the stream or consumer, consisting of a key-value pair.
 type Tag struct {
 	Value *string `json:"value,omitempty"`
+}
+
+// Represents the warm throughput configuration on the stream. This is only
+// present for On-Demand Kinesis Data Streams in accounts that have MinimumThroughputBillingCommitment
+// enabled.
+type WarmThroughputObject struct {
+	CurrentMiBps *int64 `json:"currentMiBps,omitempty"`
+	TargetMiBps  *int64 `json:"targetMiBps,omitempty"`
 }

@@ -20,6 +20,7 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
@@ -41,6 +42,23 @@ func newResourceDelta(
 		return delta
 	}
 
+	if ackcompare.HasNilDifference(a.ko.Spec.EncryptionType, b.ko.Spec.EncryptionType) {
+		delta.Add("Spec.EncryptionType", a.ko.Spec.EncryptionType, b.ko.Spec.EncryptionType)
+	} else if a.ko.Spec.EncryptionType != nil && b.ko.Spec.EncryptionType != nil {
+		if *a.ko.Spec.EncryptionType != *b.ko.Spec.EncryptionType {
+			delta.Add("Spec.EncryptionType", a.ko.Spec.EncryptionType, b.ko.Spec.EncryptionType)
+		}
+	}
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.KeyRef, b.ko.Spec.KeyRef) {
+		delta.Add("Spec.KeyRef", a.ko.Spec.KeyRef, b.ko.Spec.KeyRef)
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB) {
+		delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
+	} else if a.ko.Spec.MaxRecordSizeInKiB != nil && b.ko.Spec.MaxRecordSizeInKiB != nil {
+		if *a.ko.Spec.MaxRecordSizeInKiB != *b.ko.Spec.MaxRecordSizeInKiB {
+			delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
@@ -48,11 +66,25 @@ func newResourceDelta(
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 		}
 	}
+	if ackcompare.HasNilDifference(a.ko.Spec.RetentionPeriodHours, b.ko.Spec.RetentionPeriodHours) {
+		delta.Add("Spec.RetentionPeriodHours", a.ko.Spec.RetentionPeriodHours, b.ko.Spec.RetentionPeriodHours)
+	} else if a.ko.Spec.RetentionPeriodHours != nil && b.ko.Spec.RetentionPeriodHours != nil {
+		if *a.ko.Spec.RetentionPeriodHours != *b.ko.Spec.RetentionPeriodHours {
+			delta.Add("Spec.RetentionPeriodHours", a.ko.Spec.RetentionPeriodHours, b.ko.Spec.RetentionPeriodHours)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.ShardCount, b.ko.Spec.ShardCount) {
 		delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
 	} else if a.ko.Spec.ShardCount != nil && b.ko.Spec.ShardCount != nil {
 		if *a.ko.Spec.ShardCount != *b.ko.Spec.ShardCount {
 			delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
+		}
+	}
+	if len(a.ko.Spec.ShardLevelMetrics) != len(b.ko.Spec.ShardLevelMetrics) {
+		delta.Add("Spec.ShardLevelMetrics", a.ko.Spec.ShardLevelMetrics, b.ko.Spec.ShardLevelMetrics)
+	} else if len(a.ko.Spec.ShardLevelMetrics) > 0 {
+		if !ackcompare.SliceStringPEqual(a.ko.Spec.ShardLevelMetrics, b.ko.Spec.ShardLevelMetrics) {
+			delta.Add("Spec.ShardLevelMetrics", a.ko.Spec.ShardLevelMetrics, b.ko.Spec.ShardLevelMetrics)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.StreamModeDetails, b.ko.Spec.StreamModeDetails) {
@@ -70,6 +102,13 @@ func newResourceDelta(
 	latestACKTags, _ := convertToOrderedACKTags(b.ko.Spec.Tags)
 	if !ackcompare.MapStringStringEqual(desiredACKTags, latestACKTags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps) {
+		delta.Add("Spec.WarmThroughputMiBps", a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps)
+	} else if a.ko.Spec.WarmThroughputMiBps != nil && b.ko.Spec.WarmThroughputMiBps != nil {
+		if *a.ko.Spec.WarmThroughputMiBps != *b.ko.Spec.WarmThroughputMiBps {
+			delta.Add("Spec.WarmThroughputMiBps", a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps)
+		}
 	}
 
 	return delta

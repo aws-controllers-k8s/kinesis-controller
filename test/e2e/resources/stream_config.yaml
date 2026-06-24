@@ -1,0 +1,15 @@
+apiVersion: kinesis.services.k8s.aws/v1alpha1
+kind: Stream
+metadata:
+  name: $STREAM_NAME
+spec:
+  name: $STREAM_NAME
+  shardCount: $SHARD_COUNT
+  retentionPeriodHours: $RETENTION_PERIOD_HOURS
+  shardLevelMetrics:
+    - IncomingBytes
+    - OutgoingBytes
+  encryptionType: KMS
+  keyID: alias/aws/kinesis
+  tags:
+    hello: world

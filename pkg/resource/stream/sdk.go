@@ -98,9 +98,9 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.ConsumerCount = nil
 	}
 	if resp.StreamDescriptionSummary.EncryptionType != "" {
-		ko.Status.EncryptionType = aws.String(string(resp.StreamDescriptionSummary.EncryptionType))
+		ko.Spec.EncryptionType = aws.String(string(resp.StreamDescriptionSummary.EncryptionType))
 	} else {
-		ko.Status.EncryptionType = nil
+		ko.Spec.EncryptionType = nil
 	}
 	if resp.StreamDescriptionSummary.EnhancedMonitoring != nil {
 		f2 := []*svcapitypes.EnhancedMetrics{}
@@ -122,9 +122,15 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.EnhancedMonitoring = nil
 	}
 	if resp.StreamDescriptionSummary.KeyId != nil {
-		ko.Status.KeyID = resp.StreamDescriptionSummary.KeyId
+		ko.Spec.KeyID = resp.StreamDescriptionSummary.KeyId
 	} else {
-		ko.Status.KeyID = nil
+		ko.Spec.KeyID = nil
+	}
+	if resp.StreamDescriptionSummary.MaxRecordSizeInKiB != nil {
+		maxRecordSizeInKiBCopy := int64(*resp.StreamDescriptionSummary.MaxRecordSizeInKiB)
+		ko.Spec.MaxRecordSizeInKiB = &maxRecordSizeInKiBCopy
+	} else {
+		ko.Spec.MaxRecordSizeInKiB = nil
 	}
 	if resp.StreamDescriptionSummary.OpenShardCount != nil {
 		openShardCountCopy := int64(*resp.StreamDescriptionSummary.OpenShardCount)
@@ -134,9 +140,9 @@ func (rm *resourceManager) sdkFind(
 	}
 	if resp.StreamDescriptionSummary.RetentionPeriodHours != nil {
 		retentionPeriodHoursCopy := int64(*resp.StreamDescriptionSummary.RetentionPeriodHours)
-		ko.Status.RetentionPeriodHours = &retentionPeriodHoursCopy
+		ko.Spec.RetentionPeriodHours = &retentionPeriodHoursCopy
 	} else {
-		ko.Status.RetentionPeriodHours = nil
+		ko.Spec.RetentionPeriodHours = nil
 	}
 	if ko.Status.ACKResourceMetadata == nil {
 		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
@@ -151,11 +157,11 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.StreamCreationTimestamp = nil
 	}
 	if resp.StreamDescriptionSummary.StreamModeDetails != nil {
-		f8 := &svcapitypes.StreamModeDetails{}
+		f10 := &svcapitypes.StreamModeDetails{}
 		if resp.StreamDescriptionSummary.StreamModeDetails.StreamMode != "" {
-			f8.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
+			f10.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
 		}
-		ko.Spec.StreamModeDetails = f8
+		ko.Spec.StreamModeDetails = f10
 	} else {
 		ko.Spec.StreamModeDetails = nil
 	}
@@ -176,6 +182,34 @@ func (rm *resourceManager) sdkFind(
 	ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
 	if err != nil {
 		return nil, err
+	}
+
+	// Normalize the configurable fields that are managed through dedicated
+	// Kinesis operations so that (1) an unset field is never reconciled against
+	// the server-side default (opt-in management), and (2) semantically-equal
+	// values - the "ALL" metric expansion and the asymmetric warm-throughput
+	// read shape - do not produce a perpetual diff.
+	ko.Spec.ShardLevelMetrics = reconcileShardLevelMetrics(
+		r.ko.Spec.ShardLevelMetrics,
+		flattenEnhancedMonitoring(ko.Status.EnhancedMonitoring),
+	)
+	if r.ko.Spec.WarmThroughputMiBps == nil {
+		ko.Spec.WarmThroughputMiBps = nil
+	} else {
+		ko.Spec.WarmThroughputMiBps = warmThroughputTarget(resp.StreamDescriptionSummary.WarmThroughput)
+	}
+	if r.ko.Spec.RetentionPeriodHours == nil {
+		ko.Spec.RetentionPeriodHours = nil
+	}
+	if r.ko.Spec.EncryptionType == nil {
+		ko.Spec.EncryptionType = nil
+		ko.Spec.KeyID = nil
+	}
+	if r.ko.Spec.MaxRecordSizeInKiB == nil {
+		ko.Spec.MaxRecordSizeInKiB = nil
+	}
+	if r.ko.Spec.StreamModeDetails == nil {
+		ko.Spec.StreamModeDetails = nil
 	}
 
 	if !isStreamActive(r.ko.Status.StreamStatus) {
@@ -254,6 +288,14 @@ func (rm *resourceManager) newCreateRequestPayload(
 ) (*svcsdk.CreateStreamInput, error) {
 	res := &svcsdk.CreateStreamInput{}
 
+	if r.ko.Spec.MaxRecordSizeInKiB != nil {
+		maxRecordSizeInKiBCopy0 := *r.ko.Spec.MaxRecordSizeInKiB
+		if maxRecordSizeInKiBCopy0 > math.MaxInt32 || maxRecordSizeInKiBCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field MaxRecordSizeInKiB is of type int32")
+		}
+		maxRecordSizeInKiBCopy := int32(maxRecordSizeInKiBCopy0)
+		res.MaxRecordSizeInKiB = &maxRecordSizeInKiBCopy
+	}
 	if r.ko.Spec.ShardCount != nil {
 		shardCountCopy0 := *r.ko.Spec.ShardCount
 		if shardCountCopy0 > math.MaxInt32 || shardCountCopy0 < math.MinInt32 {
@@ -263,14 +305,22 @@ func (rm *resourceManager) newCreateRequestPayload(
 		res.ShardCount = &shardCountCopy
 	}
 	if r.ko.Spec.StreamModeDetails != nil {
-		f1 := &svcsdktypes.StreamModeDetails{}
+		f2 := &svcsdktypes.StreamModeDetails{}
 		if r.ko.Spec.StreamModeDetails.StreamMode != nil {
-			f1.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
+			f2.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
 		}
-		res.StreamModeDetails = f1
+		res.StreamModeDetails = f2
 	}
 	if r.ko.Spec.Name != nil {
 		res.StreamName = r.ko.Spec.Name
+	}
+	if r.ko.Spec.WarmThroughputMiBps != nil {
+		warmThroughputMiBpsCopy0 := *r.ko.Spec.WarmThroughputMiBps
+		if warmThroughputMiBpsCopy0 > math.MaxInt32 || warmThroughputMiBpsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field WarmThroughputMiBps is of type int32")
+		}
+		warmThroughputMiBpsCopy := int32(warmThroughputMiBpsCopy0)
+		res.WarmThroughputMiBps = &warmThroughputMiBpsCopy
 	}
 
 	return res, nil
@@ -299,9 +349,43 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+	if delta.DifferentAt("Spec.EncryptionType") {
+		if err := rm.syncEncryption(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if delta.DifferentAt("Spec.RetentionPeriodHours") {
+		if err := rm.syncRetentionPeriod(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if delta.DifferentAt("Spec.ShardLevelMetrics") {
+		if err := rm.syncEnhancedMonitoring(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if delta.DifferentAt("Spec.StreamModeDetails") || delta.DifferentAt("Spec.StreamModeDetails.StreamMode") {
+		if err := rm.syncStreamMode(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if delta.DifferentAt("Spec.MaxRecordSizeInKiB") {
+		if err := rm.syncMaxRecordSize(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if delta.DifferentAt("Spec.WarmThroughputMiBps") {
+		if err := rm.syncWarmThroughput(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	// UpdateShardCount is the only ACK-generated update operation; every other
+	// mutable property is handled by the dedicated sync calls above. Skip it
+	// unless the shard count itself changed.
+	if !delta.DifferentAt("Spec.ShardCount") {
 		return desired, nil
 	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err
@@ -401,6 +485,9 @@ func (rm *resourceManager) newDeleteRequestPayload(
 ) (*svcsdk.DeleteStreamInput, error) {
 	res := &svcsdk.DeleteStreamInput{}
 
+	if r.ko.Spec.EnforceConsumerDeletion != nil {
+		res.EnforceConsumerDeletion = r.ko.Spec.EnforceConsumerDeletion
+	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
 		res.StreamARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
