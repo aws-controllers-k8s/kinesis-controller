@@ -171,11 +171,24 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
-
 	// We need to get the tags that are in the AWS resource
 	ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
 	if err != nil {
 		return nil, err
+	}
+
+	// Populate the Spec fields that mirror observed AWS state. sdkFind always
+	// overwrites these so that the "latest" resource passed to delta detection
+	// reflects actual AWS state rather than whatever was last written to the CR.
+	if ko.Status.RetentionPeriodHours != nil {
+		retentionCopy := *ko.Status.RetentionPeriodHours
+		ko.Spec.DesiredRetentionPeriodHours = &retentionCopy
+	}
+	if ko.Status.EncryptionType != nil {
+		ko.Spec.DesiredEncryptionType = ko.Status.EncryptionType
+	}
+	if ko.Status.KeyID != nil {
+		ko.Spec.EncryptionKeyARN = ko.Status.KeyID
 	}
 
 	if !isStreamActive(r.ko.Status.StreamStatus) {
@@ -240,9 +253,17 @@ func (rm *resourceManager) sdkCreate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
-	if ko.Spec.Tags != nil {
-		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
+	// Tags, retention period and encryption are not part of CreateStream and are
+	// applied via separate API calls in the update path. Mark the resource as
+	// not-yet-synced so it is requeued into sdkUpdate to converge them.
+	if ko.Spec.Tags != nil ||
+		ko.Spec.DesiredRetentionPeriodHours != nil ||
+		ko.Spec.DesiredEncryptionType != nil {
+		msg := "post-create configuration (tags, retention period, encryption) pending"
+		reason := "PostCreateConfigurationPending"
+		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, &msg, &reason)
 	}
+
 	return &resource{ko}, nil
 }
 
@@ -299,9 +320,41 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+	// Retention period and encryption are applied via dedicated API calls whose
+	// responses carry no updated state. Track whether any of them ran so we can
+	// requeue afterwards: the next ReadOne re-reads the observed Status, which is
+	// what the delta hook compares the desired Spec inputs against. Encryption
+	// additionally moves the stream into the UPDATING state, so requeuing also
+	// prevents a follow-on UpdateShardCount call from failing.
+	syncedSideEffect := false
+	if delta.DifferentAt("Spec.DesiredRetentionPeriodHours") {
+		if err := rm.syncRetentionPeriod(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+		syncedSideEffect = true
+	}
+	if delta.DifferentAt("Spec.DesiredEncryptionType") ||
+		delta.DifferentAt("Spec.EncryptionKeyARN") {
+		if err := rm.syncEncryption(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+		syncedSideEffect = true
+	}
+	if syncedSideEffect {
+		return desired, ackrequeue.NeededAfter(
+			fmt.Errorf("stream retention/encryption update in progress, requeuing"),
+			ackrequeue.DefaultRequeueAfterDuration,
+		)
+	}
+	if !delta.DifferentExcept(
+		"Spec.Tags",
+		"Spec.DesiredRetentionPeriodHours",
+		"Spec.DesiredEncryptionType",
+		"Spec.EncryptionKeyARN",
+	) {
 		return desired, nil
 	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err

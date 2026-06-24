@@ -23,6 +23,24 @@ import (
 // StreamSpec defines the desired state of Stream.
 type StreamSpec struct {
 
+	// The desired server-side encryption type for the stream. Valid values
+	// are NONE and KMS. When set to KMS, EncryptionKeyARN must also be
+	// provided. The controller calls StartStreamEncryption or
+	// StopStreamEncryption as needed. The observed encryption type is
+	// reported in Status.EncryptionType.
+	DesiredEncryptionType *string `json:"desiredEncryptionType,omitempty"`
+	// The desired retention period for the stream, in hours. Valid range is
+	// 24 to 8760 hours (365 days). When set, the controller calls
+	// IncreaseStreamRetentionPeriod or DecreaseStreamRetentionPeriod as
+	// needed. The observed retention period is reported in
+	// Status.RetentionPeriodHours.
+	DesiredRetentionPeriodHours *int64 `json:"desiredRetentionPeriodHours,omitempty"`
+	// The ARN of the customer-managed KMS key to use for server-side
+	// encryption. Required when DesiredEncryptionType is KMS. A full key
+	// ARN must be supplied (aliases and bare key IDs are rejected) so that
+	// the observed Status.KeyID matches the desired value and the
+	// controller does not re-encrypt on every reconcile.
+	EncryptionKeyARN *string `json:"encryptionKeyARN,omitempty"`
 	// A name to identify the stream. The stream name is scoped to the Amazon Web
 	// Services account used by the application that creates the stream. It is also
 	// scoped by Amazon Web Services Region. That is, two streams in two different

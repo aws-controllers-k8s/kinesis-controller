@@ -18,10 +18,11 @@ for them.
 from dataclasses import dataclass
 from acktest.bootstrapping import Resources
 from e2e import bootstrap_directory
+from e2e.bootstrappable.kms import KMS
 
 @dataclass
 class BootstrapResources(Resources):
-    pass
+    KMSKey: KMS
 
 _bootstrap_resources = None
 
