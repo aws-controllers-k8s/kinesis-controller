@@ -89,6 +89,39 @@ def wait_until_deleted(
             break
 
 
+def wait_until(
+        stream_name: str,
+        matcher,
+        timeout_seconds: int = DEFAULT_WAIT_UNTIL_EXISTS_TIMEOUT_SECONDS,
+        interval_seconds: int = DEFAULT_WAIT_UNTIL_EXISTS_INTERVAL_SECONDS,
+    ) -> None:
+    """Waits until the supplied matcher returns True for the Stream's observed
+    StreamDescriptionSummary.
+
+    Raises:
+        pytest.fail upon timeout
+    """
+    now = datetime.datetime.now()
+    timeout = now + datetime.timedelta(seconds=timeout_seconds)
+
+    while True:
+        if datetime.datetime.now() >= timeout:
+            pytest.fail("Timed out waiting for Stream to match expectation")
+        time.sleep(interval_seconds)
+
+        latest = get(stream_name)
+        if latest is not None and matcher(latest):
+            break
+
+
+def retention_period_matches(expected_hours: int):
+    return lambda summary: summary.get('RetentionPeriodHours') == expected_hours
+
+
+def encryption_type_matches(expected_type: str):
+    return lambda summary: summary.get('EncryptionType') == expected_type
+
+
 def get(stream_name):
     """Returns a dict containing the Stream record from the IAM API.
 
