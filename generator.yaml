@@ -35,6 +35,8 @@ resources:
           output_fields:
             TargetShardCount: ShardCount
     hooks:
+      delta_pre_compare:
+        template_path: hooks/stream/delta_pre_compare.go.tpl
       sdk_read_one_post_set_output:
         template_path: hooks/stream/sdk_read_one_post_set_output.go.tpl
       sdk_update_post_set_output:
@@ -54,6 +56,27 @@ resources:
           path: Tags
       Name:
         is_primary_key: true
+      # Settable Spec inputs. None of these are part of CreateStream; they are
+      # applied via separate API calls in the update path (Increase/Decrease
+      # StreamRetentionPeriod and Start/StopStreamEncryption). sdkFind mirrors
+      # the observed AWS values back into these fields so that auto-generated
+      # delta detection compares desired vs actual state correctly.
+      DesiredRetentionPeriodHours:
+        type: int64
+        late_initialize:
+          skip_incomplete_check: {}
+      DesiredEncryptionType:
+        type: string
+        late_initialize:
+          skip_incomplete_check: {}
+      # EncryptionKeyARN is the customer-managed KMS key used when
+      # DesiredEncryptionType is KMS. A key *ARN* is required (aliases are
+      # rejected in the update hook) so the observed Status.KeyID matches the
+      # desired value and the controller does not re-encrypt on every reconcile.
+      EncryptionKeyARN:
+        type: string
+        late_initialize:
+          skip_incomplete_check: {}
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because
       # the CreateStream output shape has no members at all...
       ConsumerCount:

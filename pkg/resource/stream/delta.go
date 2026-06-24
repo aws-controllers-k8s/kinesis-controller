@@ -40,7 +40,49 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	// DescribeStreamSummary returns an empty EncryptionType for unencrypted
+	// streams, which the generated sdk.go maps to nil. Treat nil as NONE so
+	// that a desired value of NONE does not produce a spurious delta against
+	// an unencrypted stream and trigger an infinite reconcile loop.
+	if a.ko.Spec.DesiredEncryptionType != nil && b.ko.Spec.DesiredEncryptionType == nil {
+		none := "NONE"
+		b.ko.Spec.DesiredEncryptionType = &none
+	}
 
+	// Before late-init runs, desired Spec fields are nil while latest (from
+	// sdkFind mirroring) has the observed value. Suppress nil-vs-observed
+	// deltas so that update hooks are not called with nil desired values.
+	if a.ko.Spec.DesiredRetentionPeriodHours == nil && b.ko.Spec.DesiredRetentionPeriodHours != nil {
+		a.ko.Spec.DesiredRetentionPeriodHours = b.ko.Spec.DesiredRetentionPeriodHours
+	}
+	if a.ko.Spec.DesiredEncryptionType == nil && b.ko.Spec.DesiredEncryptionType != nil {
+		a.ko.Spec.DesiredEncryptionType = b.ko.Spec.DesiredEncryptionType
+	}
+	if a.ko.Spec.EncryptionKeyARN == nil && b.ko.Spec.EncryptionKeyARN != nil {
+		a.ko.Spec.EncryptionKeyARN = b.ko.Spec.EncryptionKeyARN
+	}
+
+	if ackcompare.HasNilDifference(a.ko.Spec.DesiredEncryptionType, b.ko.Spec.DesiredEncryptionType) {
+		delta.Add("Spec.DesiredEncryptionType", a.ko.Spec.DesiredEncryptionType, b.ko.Spec.DesiredEncryptionType)
+	} else if a.ko.Spec.DesiredEncryptionType != nil && b.ko.Spec.DesiredEncryptionType != nil {
+		if *a.ko.Spec.DesiredEncryptionType != *b.ko.Spec.DesiredEncryptionType {
+			delta.Add("Spec.DesiredEncryptionType", a.ko.Spec.DesiredEncryptionType, b.ko.Spec.DesiredEncryptionType)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.DesiredRetentionPeriodHours, b.ko.Spec.DesiredRetentionPeriodHours) {
+		delta.Add("Spec.DesiredRetentionPeriodHours", a.ko.Spec.DesiredRetentionPeriodHours, b.ko.Spec.DesiredRetentionPeriodHours)
+	} else if a.ko.Spec.DesiredRetentionPeriodHours != nil && b.ko.Spec.DesiredRetentionPeriodHours != nil {
+		if *a.ko.Spec.DesiredRetentionPeriodHours != *b.ko.Spec.DesiredRetentionPeriodHours {
+			delta.Add("Spec.DesiredRetentionPeriodHours", a.ko.Spec.DesiredRetentionPeriodHours, b.ko.Spec.DesiredRetentionPeriodHours)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN) {
+		delta.Add("Spec.EncryptionKeyARN", a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN)
+	} else if a.ko.Spec.EncryptionKeyARN != nil && b.ko.Spec.EncryptionKeyARN != nil {
+		if *a.ko.Spec.EncryptionKeyARN != *b.ko.Spec.EncryptionKeyARN {
+			delta.Add("Spec.EncryptionKeyARN", a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {

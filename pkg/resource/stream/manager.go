@@ -50,7 +50,7 @@ var (
 // +kubebuilder:rbac:groups=kinesis.services.k8s.aws,resources=streams,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kinesis.services.k8s.aws,resources=streams/status,verbs=get;update;patch
 
-var lateInitializeFieldNames = []string{}
+var lateInitializeFieldNames = []string{"DesiredEncryptionType", "DesiredRetentionPeriodHours", "EncryptionKeyARN"}
 
 // resourceManager is responsible for providing a consistent way to perform
 // CRUD operations in a backend AWS service API for Book custom resources.
@@ -260,7 +260,18 @@ func (rm *resourceManager) lateInitializeFromReadOneOutput(
 	observed acktypes.AWSResource,
 	latest acktypes.AWSResource,
 ) acktypes.AWSResource {
-	return latest
+	observedKo := rm.concreteResource(observed).ko.DeepCopy()
+	latestKo := rm.concreteResource(latest).ko.DeepCopy()
+	if observedKo.Spec.DesiredEncryptionType != nil && latestKo.Spec.DesiredEncryptionType == nil {
+		latestKo.Spec.DesiredEncryptionType = observedKo.Spec.DesiredEncryptionType
+	}
+	if observedKo.Spec.DesiredRetentionPeriodHours != nil && latestKo.Spec.DesiredRetentionPeriodHours == nil {
+		latestKo.Spec.DesiredRetentionPeriodHours = observedKo.Spec.DesiredRetentionPeriodHours
+	}
+	if observedKo.Spec.EncryptionKeyARN != nil && latestKo.Spec.EncryptionKeyARN == nil {
+		latestKo.Spec.EncryptionKeyARN = observedKo.Spec.EncryptionKeyARN
+	}
+	return &resource{latestKo}
 }
 
 // IsSynced returns true if the resource is synced.
