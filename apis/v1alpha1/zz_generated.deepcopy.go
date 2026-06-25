@@ -387,6 +387,11 @@ func (in *StreamSpec) DeepCopyInto(out *StreamSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ResourcePolicy != nil {
+		in, out := &in.ResourcePolicy, &out.ResourcePolicy
+		*out = new(string)
+		**out = **in
+	}
 	if in.ShardCount != nil {
 		in, out := &in.ShardCount, &out.ShardCount
 		*out = new(int64)

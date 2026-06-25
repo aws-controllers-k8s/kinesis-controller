@@ -178,6 +178,15 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 
+	// Read the stream's resource-based policy (if any) into the spec so drift
+	// against the desired policy can be detected.
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		ko.Spec.ResourcePolicy, err = rm.getResourcePolicy(ctx, (*string)(ko.Status.ACKResourceMetadata.ARN))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if !isStreamActive(r.ko.Status.StreamStatus) {
 		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
 	}
@@ -240,7 +249,9 @@ func (rm *resourceManager) sdkCreate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
-	if ko.Spec.Tags != nil {
+	// Tags and the resource policy are applied on a follow-up reconcile, so mark
+	// the resource as not-yet-synced to trigger one.
+	if ko.Spec.Tags != nil || ko.Spec.ResourcePolicy != nil {
 		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
 	}
 	return &resource{ko}, nil
@@ -299,7 +310,13 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+	// The resource-based policy is managed out-of-band of UpdateShardCount.
+	if delta.DifferentAt("Spec.ResourcePolicy") {
+		if err := rm.syncResourcePolicy(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

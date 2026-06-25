@@ -50,6 +50,11 @@ spec:
 
                   Regex Pattern: `^[a-zA-Z0-9_.-]+$`
                 type: string
+              resourcePolicy:
+                description: |-
+                  Details of the resource policy. It must include the identity of the principal
+                  and the actions allowed on this resource. This is formatted as a JSON string.
+                type: string
               shardCount:
                 description: |-
                   The number of shards that the stream will use. The throughput of the stream

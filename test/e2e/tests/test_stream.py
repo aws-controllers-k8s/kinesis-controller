@@ -13,11 +13,13 @@
 
 """Integration tests for the Kinesis Stream resource"""
 
+import json
 import logging
 import time
 
 import pytest
 
+from acktest.aws.identity import get_account_id, get_region
 from acktest.k8s import condition
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
@@ -122,6 +124,98 @@ class TestStream:
             expected=user_tags,
             actual=response_tags,
         )
+
+        k8s.delete_custom_resource(ref)
+
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+
+        stream.wait_until_deleted(stream_name)
+
+    def test_resource_policy(self):
+        stream_name = random_suffix_name("my-policy-stream", 24)
+        shard_count = "1"
+        account_id = get_account_id()
+        region = get_region()
+        stream_arn = f"arn:aws:kinesis:{region}:{account_id}:stream/{stream_name}"
+
+        resource_policy = {
+            "Version": "2012-10-17",
+            "Id": "ack-stream-with-policy",
+            "Statement": [
+                {
+                    "Sid": "EnableResourcePolicyOnStream",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": f"arn:aws:iam::{account_id}:root"
+                    },
+                    "Action": [
+                        "kinesis:GetRecords",
+                        "kinesis:GetShardIterator",
+                        "kinesis:DescribeStreamSummary",
+                        "kinesis:ListShards",
+                    ],
+                    "Resource": stream_arn,
+                }
+            ],
+        }
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = shard_count
+        replacements['RESOURCE_POLICY'] = json.dumps(resource_policy)
+
+        resource_data = load_kinesis_resource(
+            "stream_resource_policy",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+
+        # The policy is attached out-of-band after the stream becomes active, so
+        # wait for the controller to report the resource as synced.
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=10)
+
+        # The stream ARN is required to query the resource policy.
+        cr = k8s.get_resource(ref)
+        stream_arn = cr["status"]["ackResourceMetadata"]["arn"]
+
+        policy = stream.get_resource_policy(stream_arn)
+        assert policy is not None
+        assert "ack-stream-with-policy" in policy
+
+        # Update the policy and confirm it is applied.
+        resource_policy['Id'] = 'updated-stream-policy'
+        updates = {
+            "spec": {
+                "resourcePolicy": json.dumps(resource_policy),
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=10)
+
+        policy = stream.get_resource_policy(stream_arn)
+        assert policy is not None
+        assert "updated-stream-policy" in policy
+
+        # Clearing the policy should delete it from the stream.
+        updates = {
+            "spec": {
+                "resourcePolicy": None,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=10)
+
+        assert stream.get_resource_policy(stream_arn) is None
 
         k8s.delete_custom_resource(ref)
 

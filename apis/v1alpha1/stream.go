@@ -33,6 +33,9 @@ type StreamSpec struct {
 	// Regex Pattern: `^[a-zA-Z0-9_.-]+$`
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
+	// Details of the resource policy. It must include the identity of the principal
+	// and the actions allowed on this resource. This is formatted as a JSON string.
+	ResourcePolicy *string `json:"resourcePolicy,omitempty"`
 	// The number of shards that the stream will use. The throughput of the stream
 	// is a function of the number of shards; more shards are required for greater
 	// provisioned throughput.

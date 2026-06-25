@@ -35,6 +35,8 @@ resources:
           output_fields:
             TargetShardCount: ShardCount
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_one_post_set_output:
         template_path: hooks/stream/sdk_read_one_post_set_output.go.tpl
       sdk_update_post_set_output:
@@ -52,6 +54,12 @@ resources:
         from:
           operation: AddTagsToStream
           path: Tags
+      ResourcePolicy:
+        from:
+          operation: PutResourcePolicy
+          path: Policy
+        compare:
+          is_ignored: true
       Name:
         is_primary_key: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because

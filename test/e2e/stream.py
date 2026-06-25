@@ -112,3 +112,19 @@ def get_tags(stream_name):
         return resp['Tags']
     except c.exceptions.ResourceNotFoundException:
         return None
+
+
+def get_resource_policy(stream_arn):
+    """Returns the resource-based policy document (a JSON string) attached to
+    the stream with the supplied ARN.
+
+    If no policy is attached (or the stream does not exist), returns None.
+    """
+    c = boto3.client('kinesis')
+    try:
+        resp = c.get_resource_policy(ResourceARN=stream_arn)
+        if resp.get('Policy'):
+            return resp['Policy']
+        return None
+    except c.exceptions.ResourceNotFoundException:
+        return None
