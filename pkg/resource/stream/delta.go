@@ -41,6 +41,7 @@ func newResourceDelta(
 		return delta
 	}
 	compareResourcePolicyDocument(delta, a, b)
+	compareShardLevelMetrics(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB) {
 		delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)

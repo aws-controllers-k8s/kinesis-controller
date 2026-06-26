@@ -449,6 +449,17 @@ func (in *StreamSpec) DeepCopyInto(out *StreamSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.ShardLevelMetrics != nil {
+		in, out := &in.ShardLevelMetrics, &out.ShardLevelMetrics
+		*out = make([]*string, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(string)
+				**out = **in
+			}
+		}
+	}
 	if in.StreamModeDetails != nil {
 		in, out := &in.StreamModeDetails, &out.StreamModeDetails
 		*out = new(StreamModeDetails)

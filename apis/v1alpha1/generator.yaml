@@ -44,7 +44,9 @@ resources:
       sdk_update_pre_build_request:
         template_path: hooks/stream/sdk_update_pre_build_request.go.tpl
       delta_pre_compare:
-        code: compareResourcePolicyDocument(delta, a, b)
+        code: |
+          compareResourcePolicyDocument(delta, a, b)
+          compareShardLevelMetrics(delta, a, b)
     exceptions:
       errors:
         404:
@@ -66,6 +68,12 @@ resources:
         from:
           operation: DeleteStream
           path: EnforceConsumerDeletion
+        compare:
+          is_ignored: true
+      ShardLevelMetrics:
+        from:
+          operation: EnableEnhancedMonitoring
+          path: ShardLevelMetrics
         compare:
           is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because

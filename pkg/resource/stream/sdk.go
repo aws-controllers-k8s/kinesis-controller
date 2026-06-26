@@ -194,6 +194,19 @@ func (rm *resourceManager) sdkFind(
 		ko.Spec.ResourcePolicy = policy
 	}
 
+	// Surface the currently-enabled shard-level metrics into the spec field so
+	// that the delta comparison reflects the stream's actual enhanced
+	// monitoring state. ShardLevelMetrics is not returned at its spec path by
+	// DescribeStreamSummary; it lives under the read-only EnhancedMonitoring
+	// status field.
+	ko.Spec.ShardLevelMetrics = nil
+	for _, em := range ko.Status.EnhancedMonitoring {
+		if em == nil {
+			continue
+		}
+		ko.Spec.ShardLevelMetrics = append(ko.Spec.ShardLevelMetrics, em.ShardLevelMetrics...)
+	}
+
 	if !isStreamActive(r.ko.Status.StreamStatus) {
 		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
 	}
@@ -346,7 +359,15 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB") {
+	// ShardLevelMetrics is managed out-of-band via the
+	// Enable/DisableEnhancedMonitoring APIs rather than the UpdateShardCount
+	// call used for the standard update path.
+	if delta.DifferentAt("Spec.ShardLevelMetrics") {
+		if err := rm.syncShardLevelMetrics(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

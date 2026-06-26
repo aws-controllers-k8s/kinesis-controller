@@ -11,6 +11,8 @@
                 "kinesis:ListShards",
                 "kinesis:UpdateShardCount",
                 "kinesis:UpdateMaxRecordSize",
+                "kinesis:EnableEnhancedMonitoring",
+                "kinesis:DisableEnhancedMonitoring",
                 "kinesis:CreateStream",
                 "kinesis:DescribeStream",
                 "kinesis:PutResourcePolicy",

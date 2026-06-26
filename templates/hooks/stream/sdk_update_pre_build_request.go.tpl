@@ -23,6 +23,14 @@
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB") {
+	// ShardLevelMetrics is managed out-of-band via the
+	// Enable/DisableEnhancedMonitoring APIs rather than the UpdateShardCount
+	// call used for the standard update path.
+	if delta.DifferentAt("Spec.ShardLevelMetrics") {
+		if err := rm.syncShardLevelMetrics(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics") {
 		return desired, nil
 	}

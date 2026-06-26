@@ -46,6 +46,31 @@ type StreamSpec struct {
 	// is a function of the number of shards; more shards are required for greater
 	// provisioned throughput.
 	ShardCount *int64 `json:"shardCount,omitempty"`
+	// List of shard-level metrics to enable.
+	//
+	// The following are the valid shard-level metrics. The value "ALL" enables
+	// every metric.
+	//
+	//   - IncomingBytes
+	//
+	//   - IncomingRecords
+	//
+	//   - OutgoingBytes
+	//
+	//   - OutgoingRecords
+	//
+	//   - WriteProvisionedThroughputExceeded
+	//
+	//   - ReadProvisionedThroughputExceeded
+	//
+	//   - IteratorAgeMilliseconds
+	//
+	//   - ALL
+	//
+	// For more information, see Monitoring the Amazon Kinesis Data Streams Service
+	// with Amazon CloudWatch (https://docs.aws.amazon.com/kinesis/latest/dev/monitoring-with-cloudwatch.html)
+	// in the Amazon Kinesis Data Streams Developer Guide.
+	ShardLevelMetrics []*string `json:"shardLevelMetrics,omitempty"`
 	// Indicates the capacity mode of the data stream. Currently, in Kinesis Data
 	// Streams, you can choose between an on-demand capacity mode and a provisioned
 	// capacity mode for your data streams.

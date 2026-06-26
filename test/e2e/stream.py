@@ -101,6 +101,19 @@ def get(stream_name):
     except c.exceptions.ResourceNotFoundException:
         return None
 
+def get_shard_level_metrics(stream_name):
+    """Returns the set of shard-level (enhanced) metrics currently enabled on
+    the stream, or None if the stream does not exist.
+    """
+    summary = get(stream_name)
+    if summary is None:
+        return None
+    metrics = set()
+    for em in summary.get('EnhancedMonitoring', []):
+        for m in em.get('ShardLevelMetrics', []):
+            metrics.add(m)
+    return metrics
+
 def get_tags(stream_name):
     """Return tags for the stream
 

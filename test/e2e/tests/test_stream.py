@@ -318,3 +318,67 @@ class TestStream:
         k8s.delete_custom_resource(ref)
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
         stream.wait_until_deleted(stream_name)
+
+    def test_shard_level_metrics(self):
+        stream_name = random_suffix_name("stream-slm", 24)
+        shard_count = "1"
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = shard_count
+
+        resource_data = load_kinesis_resource(
+            "stream_shard_level_metrics",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        cr = k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+        time.sleep(CHECK_STATUS_WAIT_SECONDS)
+
+        assert cr is not None
+        # Shard-level metrics are not part of CreateStream; they are applied via
+        # EnableEnhancedMonitoring on the reconcile after creation, so the
+        # resource only reports Synced once they have been enabled.
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=15)
+
+        assert stream.get_shard_level_metrics(stream_name) == {
+            "IncomingBytes", "OutgoingBytes",
+        }
+
+        # Update the set: drop OutgoingBytes and add IncomingRecords. This
+        # exercises both the Enable and Disable EnhancedMonitoring paths.
+        updates = {
+            "spec": {
+                "shardLevelMetrics": ["IncomingBytes", "IncomingRecords"]
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=15)
+
+        assert stream.get_shard_level_metrics(stream_name) == {
+            "IncomingBytes", "IncomingRecords",
+        }
+
+        # Clearing the field disables all shard-level metrics.
+        updates = {
+            "spec": {
+                "shardLevelMetrics": None
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=15)
+
+        assert stream.get_shard_level_metrics(stream_name) == set()
+
+        k8s.delete_custom_resource(ref)
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+        stream.wait_until_deleted(stream_name)
