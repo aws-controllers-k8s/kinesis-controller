@@ -265,3 +265,56 @@ class TestStream:
 
         # The consumer should have been removed together with the stream.
         assert stream.get_consumer(stream_arn, consumer_name) is None
+
+    def test_max_record_size(self):
+        stream_name = random_suffix_name("stream-max-rec", 24)
+        shard_count = "1"
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = shard_count
+        replacements['MAX_RECORD_SIZE'] = "1024"
+
+        resource_data = load_kinesis_resource(
+            "stream_max_record_size",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        cr = k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+        time.sleep(CHECK_STATUS_WAIT_SECONDS)
+
+        assert cr is not None
+        condition.assert_synced(ref)
+
+        # The max record size should have been applied at creation time.
+        latest = stream.get(stream_name)
+        assert latest is not None
+        assert int(latest['MaxRecordSizeInKiB']) == 1024
+
+        # Update the max record size; this is applied via the dedicated
+        # UpdateMaxRecordSize API rather than UpdateShardCount.
+        updates = {
+            "spec": {
+                "maxRecordSizeInKiB": 2048
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=15)
+
+        latest = stream.get(stream_name)
+        assert int(latest['MaxRecordSizeInKiB']) == 2048
+
+        cr = k8s.get_resource(ref)
+        assert int(cr["spec"]["maxRecordSizeInKiB"]) == 2048
+
+        k8s.delete_custom_resource(ref)
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+        stream.wait_until_deleted(stream_name)

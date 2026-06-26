@@ -16,6 +16,13 @@
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy") {
+	// MaxRecordSizeInKiB is mutated via the dedicated UpdateMaxRecordSize API,
+	// not the UpdateShardCount call used for the standard update path.
+	if delta.DifferentAt("Spec.MaxRecordSizeInKiB") {
+		if err := rm.syncMaxRecordSize(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB") {
 		return desired, nil
 	}
