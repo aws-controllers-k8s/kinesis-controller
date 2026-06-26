@@ -113,6 +113,54 @@ def get_tags(stream_name):
     except c.exceptions.ResourceNotFoundException:
         return None
 
+def register_consumer(stream_arn, consumer_name):
+    """Registers an enhanced fan-out consumer against the stream."""
+    c = boto3.client('kinesis')
+    return c.register_stream_consumer(
+        StreamARN=stream_arn,
+        ConsumerName=consumer_name,
+    )
+
+
+def get_consumer(stream_arn, consumer_name):
+    """Returns the consumer description, or None if it does not exist."""
+    c = boto3.client('kinesis')
+    try:
+        resp = c.describe_stream_consumer(
+            StreamARN=stream_arn,
+            ConsumerName=consumer_name,
+        )
+        return resp['ConsumerDescription']
+    except c.exceptions.ResourceNotFoundException:
+        return None
+
+
+def wait_until_consumer_active(
+        stream_arn: str,
+        consumer_name: str,
+        timeout_seconds: int = 60*5,
+        interval_seconds: int = 15,
+    ) -> None:
+    """Waits until a registered stream consumer reports an ACTIVE status.
+
+    Raises:
+        pytest.fail upon timeout
+    """
+    now = datetime.datetime.now()
+    timeout = now + datetime.timedelta(seconds=timeout_seconds)
+
+    while True:
+        if datetime.datetime.now() >= timeout:
+            pytest.fail(
+                "Timed out waiting for Stream consumer to become ACTIVE"
+            )
+        time.sleep(interval_seconds)
+
+        consumer = get_consumer(stream_arn, consumer_name)
+        if consumer is not None and consumer.get('ConsumerStatus') == 'ACTIVE':
+            break
+
+
 def get_resource_policy(stream_arn):
     """Returns the resource-based policy document attached to the stream with
     the supplied ARN, or None if no policy is attached.

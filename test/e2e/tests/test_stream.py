@@ -220,3 +220,48 @@ class TestStream:
         k8s.delete_custom_resource(ref)
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
         stream.wait_until_deleted(stream_name)
+
+    def test_enforce_consumer_deletion(self):
+        stream_name = random_suffix_name("stream-enforce-del", 24)
+        shard_count = "1"
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = shard_count
+
+        resource_data = load_kinesis_resource(
+            "stream_enforce_consumer_deletion",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        cr = k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+        time.sleep(CHECK_STATUS_WAIT_SECONDS)
+
+        assert cr is not None
+        condition.assert_synced(ref)
+
+        cr = k8s.get_resource(ref)
+        assert cr["spec"]["enforceConsumerDeletion"] is True
+        stream_arn = cr["status"]["ackResourceMetadata"]["arn"]
+
+        # Register a consumer. With a registered consumer, a plain DeleteStream
+        # would fail with ResourceInUseException; enforceConsumerDeletion=true
+        # must force the consumer to be removed along with the stream.
+        consumer_name = random_suffix_name("consumer", 24)
+        stream.register_consumer(stream_arn, consumer_name)
+        stream.wait_until_consumer_active(stream_arn, consumer_name)
+
+        # Delete the stream CR; the enforced deletion should succeed.
+        k8s.delete_custom_resource(ref)
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+        stream.wait_until_deleted(stream_name)
+
+        # The consumer should have been removed together with the stream.
+        assert stream.get_consumer(stream_arn, consumer_name) is None

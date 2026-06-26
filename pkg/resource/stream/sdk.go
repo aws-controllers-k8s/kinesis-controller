@@ -441,6 +441,9 @@ func (rm *resourceManager) newDeleteRequestPayload(
 ) (*svcsdk.DeleteStreamInput, error) {
 	res := &svcsdk.DeleteStreamInput{}
 
+	if r.ko.Spec.EnforceConsumerDeletion != nil {
+		res.EnforceConsumerDeletion = r.ko.Spec.EnforceConsumerDeletion
+	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
 		res.StreamARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}

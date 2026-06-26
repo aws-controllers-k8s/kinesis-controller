@@ -62,6 +62,12 @@ resources:
           path: Policy
         compare:
           is_ignored: true
+      EnforceConsumerDeletion:
+        from:
+          operation: DeleteStream
+          path: EnforceConsumerDeletion
+        compare:
+          is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because
       # the CreateStream output shape has no members at all...
       ConsumerCount:

@@ -23,6 +23,9 @@ import (
 // StreamSpec defines the desired state of Stream.
 type StreamSpec struct {
 
+	// If this parameter is unset (null) or if you set it to false, and the stream
+	// has registered consumers, the call to DeleteStream fails with a ResourceInUseException.
+	EnforceConsumerDeletion *bool `json:"enforceConsumerDeletion,omitempty"`
 	// The maximum record size of a single record in kibibyte (KiB) that you can
 	// write to, and read from a stream.
 	MaxRecordSizeInKiB *int64 `json:"maxRecordSizeInKiB,omitempty"`

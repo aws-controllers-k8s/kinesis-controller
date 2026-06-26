@@ -39,6 +39,11 @@ spec:
           spec:
             description: StreamSpec defines the desired state of Stream.
             properties:
+              enforceConsumerDeletion:
+                description: |-
+                  If this parameter is unset (null) or if you set it to false, and the stream
+                  has registered consumers, the call to DeleteStream fails with a ResourceInUseException.
+                type: boolean
               maxRecordSizeInKiB:
                 description: |-
                   The maximum record size of a single record in kibibyte (KiB) that you can
