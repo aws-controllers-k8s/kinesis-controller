@@ -39,6 +39,12 @@ spec:
           spec:
             description: StreamSpec defines the desired state of Stream.
             properties:
+              maxRecordSizeInKiB:
+                description: |-
+                  The maximum record size of a single record in kibibyte (KiB) that you can
+                  write to, and read from a stream.
+                format: int64
+                type: integer
               name:
                 description: |-
                   A name to identify the stream. The stream name is scoped to the Amazon Web
@@ -49,6 +55,11 @@ spec:
                   same name.
 
                   Regex Pattern: `^[a-zA-Z0-9_.-]+$`
+                type: string
+              resourcePolicy:
+                description: |-
+                  Details of the resource policy. It must include the identity of the principal
+                  and the actions allowed on this resource. This is formatted as a JSON string.
                 type: string
               shardCount:
                 description: |-
@@ -69,9 +80,17 @@ spec:
               tags:
                 additionalProperties:
                   type: string
-                description: A set of up to 10 key-value pairs to use to create the
-                  tags.
+                description: |-
+                  A set of up to 50 key-value pairs to use to create the tags. A tag consists
+                  of a required key and an optional value. You can add up to 50 tags per resource.
                 type: object
+              warmThroughputMiBps:
+                description: |-
+                  The target warm throughput in MB/s that the stream should be scaled to handle.
+                  This represents the throughput capacity that will be immediately available
+                  for write operations.
+                format: int64
+                type: integer
             required:
             - name
             type: object

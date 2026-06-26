@@ -23,6 +23,9 @@ import (
 // StreamSpec defines the desired state of Stream.
 type StreamSpec struct {
 
+	// The maximum record size of a single record in kibibyte (KiB) that you can
+	// write to, and read from a stream.
+	MaxRecordSizeInKiB *int64 `json:"maxRecordSizeInKiB,omitempty"`
 	// A name to identify the stream. The stream name is scoped to the Amazon Web
 	// Services account used by the application that creates the stream. It is also
 	// scoped by Amazon Web Services Region. That is, two streams in two different
@@ -33,6 +36,9 @@ type StreamSpec struct {
 	// Regex Pattern: `^[a-zA-Z0-9_.-]+$`
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
+	// Details of the resource policy. It must include the identity of the principal
+	// and the actions allowed on this resource. This is formatted as a JSON string.
+	ResourcePolicy *string `json:"resourcePolicy,omitempty"`
 	// The number of shards that the stream will use. The throughput of the stream
 	// is a function of the number of shards; more shards are required for greater
 	// provisioned throughput.
@@ -41,8 +47,13 @@ type StreamSpec struct {
 	// Streams, you can choose between an on-demand capacity mode and a provisioned
 	// capacity mode for your data streams.
 	StreamModeDetails *StreamModeDetails `json:"streamModeDetails,omitempty"`
-	// A set of up to 10 key-value pairs to use to create the tags.
+	// A set of up to 50 key-value pairs to use to create the tags. A tag consists
+	// of a required key and an optional value. You can add up to 50 tags per resource.
 	Tags map[string]*string `json:"tags,omitempty"`
+	// The target warm throughput in MB/s that the stream should be scaled to handle.
+	// This represents the throughput capacity that will be immediately available
+	// for write operations.
+	WarmThroughputMiBps *int64 `json:"warmThroughputMiBps,omitempty"`
 }
 
 // StreamStatus defines the observed state of Stream

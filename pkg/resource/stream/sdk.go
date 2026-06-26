@@ -126,6 +126,12 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Status.KeyID = nil
 	}
+	if resp.StreamDescriptionSummary.MaxRecordSizeInKiB != nil {
+		maxRecordSizeInKiBCopy := int64(*resp.StreamDescriptionSummary.MaxRecordSizeInKiB)
+		ko.Spec.MaxRecordSizeInKiB = &maxRecordSizeInKiBCopy
+	} else {
+		ko.Spec.MaxRecordSizeInKiB = nil
+	}
 	if resp.StreamDescriptionSummary.OpenShardCount != nil {
 		openShardCountCopy := int64(*resp.StreamDescriptionSummary.OpenShardCount)
 		ko.Status.OpenShardCount = &openShardCountCopy
@@ -151,11 +157,11 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.StreamCreationTimestamp = nil
 	}
 	if resp.StreamDescriptionSummary.StreamModeDetails != nil {
-		f8 := &svcapitypes.StreamModeDetails{}
+		f10 := &svcapitypes.StreamModeDetails{}
 		if resp.StreamDescriptionSummary.StreamModeDetails.StreamMode != "" {
-			f8.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
+			f10.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
 		}
-		ko.Spec.StreamModeDetails = f8
+		ko.Spec.StreamModeDetails = f10
 	} else {
 		ko.Spec.StreamModeDetails = nil
 	}
@@ -176,6 +182,16 @@ func (rm *resourceManager) sdkFind(
 	ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
 	if err != nil {
 		return nil, err
+	}
+
+	// Read the resource-based policy attached to the stream (if any) so that
+	// the delta comparison reflects the actual policy state.
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		policy, err := rm.getResourcePolicyWithContext(ctx, (*string)(ko.Status.ACKResourceMetadata.ARN))
+		if err != nil {
+			return nil, err
+		}
+		ko.Spec.ResourcePolicy = policy
 	}
 
 	if !isStreamActive(r.ko.Status.StreamStatus) {
@@ -254,6 +270,14 @@ func (rm *resourceManager) newCreateRequestPayload(
 ) (*svcsdk.CreateStreamInput, error) {
 	res := &svcsdk.CreateStreamInput{}
 
+	if r.ko.Spec.MaxRecordSizeInKiB != nil {
+		maxRecordSizeInKiBCopy0 := *r.ko.Spec.MaxRecordSizeInKiB
+		if maxRecordSizeInKiBCopy0 > math.MaxInt32 || maxRecordSizeInKiBCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field MaxRecordSizeInKiB is of type int32")
+		}
+		maxRecordSizeInKiBCopy := int32(maxRecordSizeInKiBCopy0)
+		res.MaxRecordSizeInKiB = &maxRecordSizeInKiBCopy
+	}
 	if r.ko.Spec.ShardCount != nil {
 		shardCountCopy0 := *r.ko.Spec.ShardCount
 		if shardCountCopy0 > math.MaxInt32 || shardCountCopy0 < math.MinInt32 {
@@ -263,14 +287,22 @@ func (rm *resourceManager) newCreateRequestPayload(
 		res.ShardCount = &shardCountCopy
 	}
 	if r.ko.Spec.StreamModeDetails != nil {
-		f1 := &svcsdktypes.StreamModeDetails{}
+		f2 := &svcsdktypes.StreamModeDetails{}
 		if r.ko.Spec.StreamModeDetails.StreamMode != nil {
-			f1.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
+			f2.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
 		}
-		res.StreamModeDetails = f1
+		res.StreamModeDetails = f2
 	}
 	if r.ko.Spec.Name != nil {
 		res.StreamName = r.ko.Spec.Name
+	}
+	if r.ko.Spec.WarmThroughputMiBps != nil {
+		warmThroughputMiBpsCopy0 := *r.ko.Spec.WarmThroughputMiBps
+		if warmThroughputMiBpsCopy0 > math.MaxInt32 || warmThroughputMiBpsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field WarmThroughputMiBps is of type int32")
+		}
+		warmThroughputMiBpsCopy := int32(warmThroughputMiBpsCopy0)
+		res.WarmThroughputMiBps = &warmThroughputMiBpsCopy
 	}
 
 	return res, nil
@@ -299,7 +331,15 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+	// ResourcePolicy is managed out-of-band via the Put/DeleteResourcePolicy
+	// APIs rather than the UpdateShardCount call used for the standard update
+	// path.
+	if delta.DifferentAt("Spec.ResourcePolicy") {
+		if err := rm.syncResourcePolicy(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

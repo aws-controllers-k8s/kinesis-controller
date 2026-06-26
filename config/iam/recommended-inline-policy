@@ -11,7 +11,10 @@
                 "kinesis:ListShards",
                 "kinesis:UpdateShardCount",
                 "kinesis:CreateStream",
-                "kinesis:DescribeStream"
+                "kinesis:DescribeStream",
+                "kinesis:PutResourcePolicy",
+                "kinesis:GetResourcePolicy",
+                "kinesis:DeleteResourcePolicy"
             ],
             "Resource": "*"
         }

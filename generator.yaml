@@ -43,6 +43,8 @@ resources:
         template_path: hooks/stream/sdk_create_post_set_output.go.tpl
       sdk_update_pre_build_request:
         template_path: hooks/stream/sdk_update_pre_build_request.go.tpl
+      delta_pre_compare:
+        code: compareResourcePolicyDocument(delta, a, b)
     exceptions:
       errors:
         404:
@@ -54,6 +56,12 @@ resources:
           path: Tags
       Name:
         is_primary_key: true
+      ResourcePolicy:
+        from:
+          operation: PutResourcePolicy
+          path: Policy
+        compare:
+          is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because
       # the CreateStream output shape has no members at all...
       ConsumerCount:

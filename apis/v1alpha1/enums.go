@@ -43,6 +43,21 @@ const (
 	MetricsName_WriteProvisionedThroughputExceeded MetricsName = "WriteProvisionedThroughputExceeded"
 )
 
+type MinimumThroughputBillingCommitmentInputStatus string
+
+const (
+	MinimumThroughputBillingCommitmentInputStatus_DISABLED MinimumThroughputBillingCommitmentInputStatus = "DISABLED"
+	MinimumThroughputBillingCommitmentInputStatus_ENABLED  MinimumThroughputBillingCommitmentInputStatus = "ENABLED"
+)
+
+type MinimumThroughputBillingCommitmentOutputStatus string
+
+const (
+	MinimumThroughputBillingCommitmentOutputStatus_DISABLED                           MinimumThroughputBillingCommitmentOutputStatus = "DISABLED"
+	MinimumThroughputBillingCommitmentOutputStatus_ENABLED                            MinimumThroughputBillingCommitmentOutputStatus = "ENABLED"
+	MinimumThroughputBillingCommitmentOutputStatus_ENABLED_UNTIL_EARLIEST_ALLOWED_END MinimumThroughputBillingCommitmentOutputStatus = "ENABLED_UNTIL_EARLIEST_ALLOWED_END"
+)
+
 type ScalingType string
 
 const (
