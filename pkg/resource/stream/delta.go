@@ -43,14 +43,8 @@ func newResourceDelta(
 	compareResourcePolicyDocument(delta, a, b)
 	compareShardLevelMetrics(delta, a, b)
 	compareWarmThroughput(delta, a, b)
+	compareMaxRecordSize(delta, a, b)
 
-	if ackcompare.HasNilDifference(a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB) {
-		delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
-	} else if a.ko.Spec.MaxRecordSizeInKiB != nil && b.ko.Spec.MaxRecordSizeInKiB != nil {
-		if *a.ko.Spec.MaxRecordSizeInKiB != *b.ko.Spec.MaxRecordSizeInKiB {
-			delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
-		}
-	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {

@@ -16,6 +16,9 @@
                 "kinesis:UpdateStreamWarmThroughput",
                 "kinesis:CreateStream",
                 "kinesis:DescribeStream",
+                "kinesis:AddTagsToStream",
+                "kinesis:RemoveTagsFromStream",
+                "kinesis:ListTagsForStream",
                 "kinesis:PutResourcePolicy",
                 "kinesis:GetResourcePolicy",
                 "kinesis:DeleteResourcePolicy"

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 
+	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/kinesis"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/kinesis/types"
@@ -44,6 +45,25 @@ func (rm *resourceManager) syncTags(
 	latest *resource,
 ) (err error) {
 	return util.SyncResourceTags(ctx, rm.sdkapi, rm.metrics, latest.ko.Spec.Name, desired.ko.Spec.Tags, latest.ko.Spec.Tags)
+}
+
+// compareMaxRecordSize records a delta on MaxRecordSizeInKiB only when the user
+// has expressed a desired value. A stream always reports an effective max record
+// size (it defaults to 1024 KiB and cannot be unset), so when the field is
+// absent from the desired spec ACK leaves it untouched rather than continually
+// reconciling the server-side default.
+func compareMaxRecordSize(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if a.ko.Spec.MaxRecordSizeInKiB == nil {
+		return
+	}
+	if b.ko.Spec.MaxRecordSizeInKiB == nil ||
+		*a.ko.Spec.MaxRecordSizeInKiB != *b.ko.Spec.MaxRecordSizeInKiB {
+		delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
+	}
 }
 
 // syncMaxRecordSize updates a stream's maximum record size via the dedicated
