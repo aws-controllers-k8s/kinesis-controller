@@ -207,6 +207,17 @@ func (rm *resourceManager) sdkFind(
 		ko.Spec.ShardLevelMetrics = append(ko.Spec.ShardLevelMetrics, em.ShardLevelMetrics...)
 	}
 
+	// WarmThroughputMiBps is returned by DescribeStreamSummary inside a nested
+	// WarmThroughput object (as TargetMiBps) rather than at its flat spec path,
+	// so surface it here to keep the delta comparison stable after an update.
+	if resp.StreamDescriptionSummary.WarmThroughput != nil &&
+		resp.StreamDescriptionSummary.WarmThroughput.TargetMiBps != nil {
+		warmThroughputMiBpsCopy := int64(*resp.StreamDescriptionSummary.WarmThroughput.TargetMiBps)
+		ko.Spec.WarmThroughputMiBps = &warmThroughputMiBpsCopy
+	} else {
+		ko.Spec.WarmThroughputMiBps = nil
+	}
+
 	if !isStreamActive(r.ko.Status.StreamStatus) {
 		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
 	}
@@ -367,7 +378,14 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics") {
+	// WarmThroughputMiBps is mutated via the dedicated UpdateStreamWarmThroughput
+	// API, not the UpdateShardCount call used for the standard update path.
+	if delta.DifferentAt("Spec.WarmThroughputMiBps") {
+		if err := rm.syncWarmThroughput(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics", "Spec.WarmThroughputMiBps") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

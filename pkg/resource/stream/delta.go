@@ -42,6 +42,7 @@ func newResourceDelta(
 	}
 	compareResourcePolicyDocument(delta, a, b)
 	compareShardLevelMetrics(delta, a, b)
+	compareWarmThroughput(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB) {
 		delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
@@ -79,13 +80,6 @@ func newResourceDelta(
 	latestACKTags, _ := convertToOrderedACKTags(b.ko.Spec.Tags)
 	if !ackcompare.MapStringStringEqual(desiredACKTags, latestACKTags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
-	}
-	if ackcompare.HasNilDifference(a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps) {
-		delta.Add("Spec.WarmThroughputMiBps", a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps)
-	} else if a.ko.Spec.WarmThroughputMiBps != nil && b.ko.Spec.WarmThroughputMiBps != nil {
-		if *a.ko.Spec.WarmThroughputMiBps != *b.ko.Spec.WarmThroughputMiBps {
-			delta.Add("Spec.WarmThroughputMiBps", a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps)
-		}
 	}
 
 	return delta

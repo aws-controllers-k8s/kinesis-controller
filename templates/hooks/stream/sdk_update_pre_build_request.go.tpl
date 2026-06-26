@@ -31,6 +31,13 @@
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics") {
+	// WarmThroughputMiBps is mutated via the dedicated UpdateStreamWarmThroughput
+	// API, not the UpdateShardCount call used for the standard update path.
+	if delta.DifferentAt("Spec.WarmThroughputMiBps") {
+		if err := rm.syncWarmThroughput(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics", "Spec.WarmThroughputMiBps") {
 		return desired, nil
 	}

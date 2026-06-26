@@ -47,6 +47,7 @@ resources:
         code: |
           compareResourcePolicyDocument(delta, a, b)
           compareShardLevelMetrics(delta, a, b)
+          compareWarmThroughput(delta, a, b)
     exceptions:
       errors:
         404:
@@ -74,6 +75,9 @@ resources:
         from:
           operation: EnableEnhancedMonitoring
           path: ShardLevelMetrics
+        compare:
+          is_ignored: true
+      WarmThroughputMiBps:
         compare:
           is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because

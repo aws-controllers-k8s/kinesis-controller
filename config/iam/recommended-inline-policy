@@ -13,6 +13,7 @@
                 "kinesis:UpdateMaxRecordSize",
                 "kinesis:EnableEnhancedMonitoring",
                 "kinesis:DisableEnhancedMonitoring",
+                "kinesis:UpdateStreamWarmThroughput",
                 "kinesis:CreateStream",
                 "kinesis:DescribeStream",
                 "kinesis:PutResourcePolicy",

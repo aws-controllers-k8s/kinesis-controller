@@ -114,6 +114,18 @@ def get_shard_level_metrics(stream_name):
             metrics.add(m)
     return metrics
 
+def get_warm_throughput(stream_name):
+    """Returns the target warm throughput (in MiBps) configured on the stream,
+    or None if the stream does not exist or reports no warm throughput.
+    """
+    summary = get(stream_name)
+    if summary is None:
+        return None
+    warm_throughput = summary.get('WarmThroughput')
+    if not warm_throughput:
+        return None
+    return warm_throughput.get('TargetMiBps')
+
 def get_tags(stream_name):
     """Return tags for the stream
 

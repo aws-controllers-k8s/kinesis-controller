@@ -382,3 +382,51 @@ class TestStream:
         k8s.delete_custom_resource(ref)
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
         stream.wait_until_deleted(stream_name)
+
+    def test_warm_throughput(self):
+        stream_name = random_suffix_name("stream-warm-tp", 24)
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['WARM_THROUGHPUT'] = "100"
+
+        resource_data = load_kinesis_resource(
+            "stream_warm_throughput",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        cr = k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+        time.sleep(CHECK_STATUS_WAIT_SECONDS)
+
+        assert cr is not None
+        # WarmThroughputMiBps is part of CreateStream, so the target is applied
+        # at creation time.
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=15)
+        assert stream.get_warm_throughput(stream_name) == 100
+
+        # Update the target throughput; this is applied via the dedicated
+        # UpdateStreamWarmThroughput API rather than UpdateShardCount.
+        updates = {
+            "spec": {
+                "warmThroughputMiBps": 200
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=15)
+
+        assert stream.get_warm_throughput(stream_name) == 200
+
+        cr = k8s.get_resource(ref)
+        assert int(cr["spec"]["warmThroughputMiBps"]) == 200
+
+        k8s.delete_custom_resource(ref)
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+        stream.wait_until_deleted(stream_name)
