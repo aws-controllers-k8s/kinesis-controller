@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"strings"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
@@ -189,7 +188,7 @@ func compareResourcePolicyDocument(
 	var policyDocumentB awsiampolicy.Policy
 	_ = json.Unmarshal([]byte(*b.ko.Spec.ResourcePolicy), &policyDocumentB)
 
-	if !reflect.DeepEqual(policyDocumentA, policyDocumentB) {
+	if !policyDocumentA.Equal(&policyDocumentB) {
 		delta.Add("Spec.ResourcePolicy", a.ko.Spec.ResourcePolicy, b.ko.Spec.ResourcePolicy)
 	}
 }

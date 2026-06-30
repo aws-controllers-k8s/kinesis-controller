@@ -185,6 +185,61 @@ func Test_compareResourcePolicyDocument(t *testing.T) {
 			wantDifferent: false,
 		},
 		{
+			// The reported phantom diff: desired declares Resource as a
+			// single-element list, but AWS collapses it to a scalar string on
+			// read. They are semantically identical.
+			name: "single-element Resource list vs scalar string",
+			args: args{
+				a: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: aws.String(`{
+								"Version": "2012-10-17",
+								"Statement": [
+									{
+										"Sid": "AllowAllKinesisActionsInThisAccount",
+										"Effect": "Allow",
+										"Principal": {"AWS": "arn:aws:iam::1234567890:role/some-role"},
+										"Action": ["kinesis:DescribeStream", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListShards"],
+										"Resource": ["arn:aws:kinesis:eu-west-1:1234567890:stream/test-stream"]
+									}
+								]
+							}`),
+						},
+					},
+				},
+				b: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: aws.String(`{"Version":"2012-10-17","Statement":[{"Sid":"AllowAllKinesisActionsInThisAccount","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::1234567890:role/some-role"},"Action":["kinesis:DescribeStream","kinesis:GetShardIterator","kinesis:GetRecords","kinesis:ListShards"],"Resource":"arn:aws:kinesis:eu-west-1:1234567890:stream/test-stream"}]}`),
+						},
+					},
+				},
+			},
+			wantDifferent: false,
+		},
+		{
+			// Action order returned by AWS may differ from the desired order.
+			name: "same statements with reordered actions",
+			args: args{
+				a: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: aws.String(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::123456789012:root"},"Action":["kinesis:GetRecords","kinesis:GetShardIterator"],"Resource":"arn:aws:kinesis:us-west-2:123456789012:stream/MyStream"}]}`),
+						},
+					},
+				},
+				b: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: aws.String(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::123456789012:root"},"Action":["kinesis:GetShardIterator","kinesis:GetRecords"],"Resource":"arn:aws:kinesis:us-west-2:123456789012:stream/MyStream"}]}`),
+						},
+					},
+				},
+			},
+			wantDifferent: false,
+		},
+		{
 			name: "different effect in statement",
 			args: args{
 				a: &resource{
