@@ -10,6 +10,7 @@
                 "kinesis:DescribeStreamSummary",
                 "kinesis:ListShards",
                 "kinesis:UpdateShardCount",
+                "kinesis:UpdateStreamMode",
                 "kinesis:UpdateMaxRecordSize",
                 "kinesis:EnableEnhancedMonitoring",
                 "kinesis:DisableEnhancedMonitoring",

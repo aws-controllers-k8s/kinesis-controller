@@ -53,6 +53,48 @@ func Test_compareResourcePolicyDocument(t *testing.T) {
 			wantDifferent: false,
 		},
 		{
+			// The reported phantom diff: the desired policy is unset (nil) but
+			// GetResourcePolicy returns an empty "{}" document for the latest.
+			name: "desired policy is nil, latest policy is empty document",
+			args: args{
+				a: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: nil,
+						},
+					},
+				},
+				b: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: aws.String("{}"),
+						},
+					},
+				},
+			},
+			wantDifferent: false,
+		},
+		{
+			name: "desired policy is empty document, latest policy is nil",
+			args: args{
+				a: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: aws.String("{}"),
+						},
+					},
+				},
+				b: &resource{
+					ko: &v1alpha1.Stream{
+						Spec: v1alpha1.StreamSpec{
+							ResourcePolicy: nil,
+						},
+					},
+				},
+			},
+			wantDifferent: false,
+		},
+		{
 			name: "desired policy is set, latest policy is nil",
 			args: args{
 				a: &resource{

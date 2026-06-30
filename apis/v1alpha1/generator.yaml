@@ -49,6 +49,7 @@ resources:
           compareShardLevelMetrics(delta, a, b)
           compareWarmThroughput(delta, a, b)
           compareMaxRecordSize(delta, a, b)
+          compareStreamModeDetails(delta, a, b)
     exceptions:
       errors:
         404:
@@ -82,6 +83,14 @@ resources:
         compare:
           is_ignored: true
       MaxRecordSizeInKiB:
+        compare:
+          is_ignored: true
+      # Kinesis defaults a stream to PROVISIONED capacity mode, which the read
+      # path surfaces into the latest state. Skip the generated comparison and
+      # let compareStreamModeDetails ignore the AWS default when the field is
+      # unset, while still reconciling an explicitly-requested mode via the
+      # out-of-band UpdateStreamMode API (syncStreamMode).
+      StreamModeDetails:
         compare:
           is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
@@ -139,6 +140,15 @@ func (rm *resourceManager) getResourcePolicyWithContext(
 		return nil, err
 	}
 
+	// A stream with no resource-based policy can come back as an empty policy
+	// document ("{}") rather than a ResourceNotFoundException. Normalize that to
+	// a nil policy so the delta comparison treats it identically to "no policy"
+	// and does not register a perpetual diff against an unset desired
+	// ResourcePolicy.
+	if isEmptyResourcePolicy(res.Policy) {
+		return nil, nil
+	}
+
 	return res.Policy, nil
 }
 
@@ -151,19 +161,21 @@ func compareResourcePolicyDocument(
 	a *resource,
 	b *resource,
 ) {
-	// Handle cases where one policy is nil and the other is not.
-	// This means one resource has a policy and the other doesn't - they're different.
-	if ackcompare.HasNilDifference(a.ko.Spec.ResourcePolicy, b.ko.Spec.ResourcePolicy) {
+	// Treat a nil policy and an empty ("{}") policy document as equivalent. A
+	// stream with no resource-based policy has GetResourcePolicy return an empty
+	// document rather than a ResourceNotFoundException, which must not register
+	// as a diff against an unset desired policy.
+	aEmpty := isEmptyResourcePolicy(a.ko.Spec.ResourcePolicy)
+	bEmpty := isEmptyResourcePolicy(b.ko.Spec.ResourcePolicy)
+	if aEmpty && bEmpty {
+		return
+	}
+	if aEmpty != bEmpty {
 		delta.Add("Spec.ResourcePolicy", a.ko.Spec.ResourcePolicy, b.ko.Spec.ResourcePolicy)
 		return
 	}
 
-	// If both policies are nil, there's no difference - both resources have no policy.
-	if a.ko.Spec.ResourcePolicy == nil && b.ko.Spec.ResourcePolicy == nil {
-		return
-	}
-
-	// At this point, both policies are non-nil. We need to compare their JSON content.
+	// At this point, both policies are non-empty. We need to compare their JSON content.
 	// To handle the variability in shapes of JSON objects representing IAM policies,
 	// especially when it comes to statements, actions, and other fields, we need
 	// a custom json.Unmarshaller approach crafted to our specific needs. Luckily,
@@ -180,4 +192,26 @@ func compareResourcePolicyDocument(
 	if !reflect.DeepEqual(policyDocumentA, policyDocumentB) {
 		delta.Add("Spec.ResourcePolicy", a.ko.Spec.ResourcePolicy, b.ko.Spec.ResourcePolicy)
 	}
+}
+
+// isEmptyResourcePolicy reports whether the given policy document represents the
+// absence of a resource-based policy. A nil pointer, a blank string, or a
+// well-formed policy document with no statements (e.g. "{}") are all treated as
+// "no policy".
+func isEmptyResourcePolicy(policy *string) bool {
+	if policy == nil || strings.TrimSpace(*policy) == "" {
+		return true
+	}
+	var doc awsiampolicy.Policy
+	if err := json.Unmarshal([]byte(*policy), &doc); err != nil {
+		// A malformed but non-empty document is not "empty"; let the content
+		// comparison surface the difference.
+		return false
+	}
+	// Only a document with no identifying fields at all (e.g. "{}") represents
+	// the absence of a policy — that is what GetResourcePolicy returns for a
+	// stream with no resource-based policy. A document carrying an Id or Version
+	// is a real, user-authored policy even if it currently has no statements.
+	return doc.Id == "" && doc.Version == "" &&
+		(doc.Statements == nil || len(doc.Statements.Values()) == 0)
 }

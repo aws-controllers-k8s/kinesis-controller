@@ -385,7 +385,14 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics", "Spec.WarmThroughputMiBps") {
+	// StreamModeDetails is mutated via the dedicated UpdateStreamMode API, not
+	// the UpdateShardCount call used for the standard update path.
+	if delta.DifferentAt("Spec.StreamModeDetails") {
+		if err := rm.syncStreamMode(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics", "Spec.WarmThroughputMiBps", "Spec.StreamModeDetails") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
