@@ -1,9 +1,13 @@
 
-    // We need to get the tags that are in the AWS resource
-    ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
-    if err != nil {
-        return nil, err
-    }
+	if !isStreamActive(ko.Status.StreamStatus) {
+		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
+	}
+
+	// We need to get the tags that are in the AWS resource
+	ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	// Read the resource-based policy attached to the stream (if any) so that
 	// the delta comparison reflects the actual policy state.
@@ -37,8 +41,4 @@
 		ko.Spec.WarmThroughputMiBps = &warmThroughputMiBpsCopy
 	} else {
 		ko.Spec.WarmThroughputMiBps = nil
-	}
-
-	if !isStreamActive(r.ko.Status.StreamStatus) {
-		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
 	}
