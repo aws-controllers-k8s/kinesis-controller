@@ -41,8 +41,18 @@ resources:
         template_path: hooks/stream/sdk_update_post_set_output.go.tpl
       sdk_create_post_set_output:
         template_path: hooks/stream/sdk_create_post_set_output.go.tpl
+      sdk_create_post_build_request:
+        template_path: hooks/stream/sdk_create_post_build_request.go.tpl
       sdk_update_pre_build_request:
         template_path: hooks/stream/sdk_update_pre_build_request.go.tpl
+      delta_pre_compare:
+        code: |
+          compareResourcePolicyDocument(delta, a, b)
+          compareShardLevelMetrics(delta, a, b)
+          compareWarmThroughput(delta, a, b)
+          compareMaxRecordSize(delta, a, b)
+          compareStreamModeDetails(delta, a, b)
+          compareShardCount(delta, a, b)
     exceptions:
       errors:
         404:
@@ -54,6 +64,46 @@ resources:
           path: Tags
       Name:
         is_primary_key: true
+      ResourcePolicy:
+        from:
+          operation: PutResourcePolicy
+          path: Policy
+        compare:
+          is_ignored: true
+      EnforceConsumerDeletion:
+        from:
+          operation: DeleteStream
+          path: EnforceConsumerDeletion
+        compare:
+          is_ignored: true
+      ShardLevelMetrics:
+        from:
+          operation: EnableEnhancedMonitoring
+          path: ShardLevelMetrics
+        compare:
+          is_ignored: true
+      WarmThroughputMiBps:
+        compare:
+          is_ignored: true
+      MaxRecordSizeInKiB:
+        compare:
+          is_ignored: true
+      # Kinesis defaults a stream to PROVISIONED capacity mode, which the read
+      # path surfaces into the latest state. Skip the generated comparison and
+      # let compareStreamModeDetails ignore the AWS default when the field is
+      # unset, while still reconciling an explicitly-requested mode via the
+      # out-of-band UpdateStreamMode API (syncStreamMode).
+      StreamModeDetails:
+        compare:
+          is_ignored: true
+      # ShardCount only applies to PROVISIONED streams. ON_DEMAND streams manage
+      # capacity automatically and reject both CreateStream and UpdateShardCount
+      # when a shard count is supplied. Skip the generated comparison and let
+      # compareShardCount ignore ShardCount for ON_DEMAND streams (the create
+      # request also strips it via sdk_create_post_build_request).
+      ShardCount:
+        compare:
+          is_ignored: true
       # NOTE(jaypipes): It is necessary to hand-roll all these fields because
       # the CreateStream output shape has no members at all...
       ConsumerCount:

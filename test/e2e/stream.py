@@ -101,6 +101,31 @@ def get(stream_name):
     except c.exceptions.ResourceNotFoundException:
         return None
 
+def get_shard_level_metrics(stream_name):
+    """Returns the set of shard-level (enhanced) metrics currently enabled on
+    the stream, or None if the stream does not exist.
+    """
+    summary = get(stream_name)
+    if summary is None:
+        return None
+    metrics = set()
+    for em in summary.get('EnhancedMonitoring', []):
+        for m in em.get('ShardLevelMetrics', []):
+            metrics.add(m)
+    return metrics
+
+def get_warm_throughput(stream_name):
+    """Returns the target warm throughput (in MiBps) configured on the stream,
+    or None if the stream does not exist or reports no warm throughput.
+    """
+    summary = get(stream_name)
+    if summary is None:
+        return None
+    warm_throughput = summary.get('WarmThroughput')
+    if not warm_throughput:
+        return None
+    return warm_throughput.get('TargetMiBps')
+
 def get_tags(stream_name):
     """Return tags for the stream
 
@@ -110,5 +135,69 @@ def get_tags(stream_name):
     try:
         resp = c.list_tags_for_stream(StreamName=stream_name)
         return resp['Tags']
+    except c.exceptions.ResourceNotFoundException:
+        return None
+
+def register_consumer(stream_arn, consumer_name):
+    """Registers an enhanced fan-out consumer against the stream."""
+    c = boto3.client('kinesis')
+    return c.register_stream_consumer(
+        StreamARN=stream_arn,
+        ConsumerName=consumer_name,
+    )
+
+
+def get_consumer(stream_arn, consumer_name):
+    """Returns the consumer description, or None if it does not exist."""
+    c = boto3.client('kinesis')
+    try:
+        resp = c.describe_stream_consumer(
+            StreamARN=stream_arn,
+            ConsumerName=consumer_name,
+        )
+        return resp['ConsumerDescription']
+    except c.exceptions.ResourceNotFoundException:
+        return None
+
+
+def wait_until_consumer_active(
+        stream_arn: str,
+        consumer_name: str,
+        timeout_seconds: int = 60*5,
+        interval_seconds: int = 15,
+    ) -> None:
+    """Waits until a registered stream consumer reports an ACTIVE status.
+
+    Raises:
+        pytest.fail upon timeout
+    """
+    now = datetime.datetime.now()
+    timeout = now + datetime.timedelta(seconds=timeout_seconds)
+
+    while True:
+        if datetime.datetime.now() >= timeout:
+            pytest.fail(
+                "Timed out waiting for Stream consumer to become ACTIVE"
+            )
+        time.sleep(interval_seconds)
+
+        consumer = get_consumer(stream_arn, consumer_name)
+        if consumer is not None and consumer.get('ConsumerStatus') == 'ACTIVE':
+            break
+
+
+def get_resource_policy(stream_arn):
+    """Returns the resource-based policy document attached to the stream with
+    the supplied ARN, or None if no policy is attached.
+
+    Kinesis has no dedicated PolicyNotFoundException; a stream with no attached
+    policy surfaces as ResourceNotFoundException.
+    """
+    c = boto3.client('kinesis')
+    try:
+        resp = c.get_resource_policy(ResourceARN=stream_arn)
+        if resp.get('Policy'):
+            return resp['Policy']
+        return None
     except c.exceptions.ResourceNotFoundException:
         return None

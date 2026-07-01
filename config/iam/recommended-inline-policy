@@ -10,8 +10,19 @@
                 "kinesis:DescribeStreamSummary",
                 "kinesis:ListShards",
                 "kinesis:UpdateShardCount",
+                "kinesis:UpdateStreamMode",
+                "kinesis:UpdateMaxRecordSize",
+                "kinesis:EnableEnhancedMonitoring",
+                "kinesis:DisableEnhancedMonitoring",
+                "kinesis:UpdateStreamWarmThroughput",
                 "kinesis:CreateStream",
-                "kinesis:DescribeStream"
+                "kinesis:DescribeStream",
+                "kinesis:AddTagsToStream",
+                "kinesis:RemoveTagsFromStream",
+                "kinesis:ListTagsForStream",
+                "kinesis:PutResourcePolicy",
+                "kinesis:GetResourcePolicy",
+                "kinesis:DeleteResourcePolicy"
             ],
             "Resource": "*"
         }

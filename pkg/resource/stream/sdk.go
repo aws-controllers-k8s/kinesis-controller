@@ -126,6 +126,12 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Status.KeyID = nil
 	}
+	if resp.StreamDescriptionSummary.MaxRecordSizeInKiB != nil {
+		maxRecordSizeInKiBCopy := int64(*resp.StreamDescriptionSummary.MaxRecordSizeInKiB)
+		ko.Spec.MaxRecordSizeInKiB = &maxRecordSizeInKiBCopy
+	} else {
+		ko.Spec.MaxRecordSizeInKiB = nil
+	}
 	if resp.StreamDescriptionSummary.OpenShardCount != nil {
 		openShardCountCopy := int64(*resp.StreamDescriptionSummary.OpenShardCount)
 		ko.Status.OpenShardCount = &openShardCountCopy
@@ -151,11 +157,11 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.StreamCreationTimestamp = nil
 	}
 	if resp.StreamDescriptionSummary.StreamModeDetails != nil {
-		f8 := &svcapitypes.StreamModeDetails{}
+		f10 := &svcapitypes.StreamModeDetails{}
 		if resp.StreamDescriptionSummary.StreamModeDetails.StreamMode != "" {
-			f8.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
+			f10.StreamMode = aws.String(string(resp.StreamDescriptionSummary.StreamModeDetails.StreamMode))
 		}
-		ko.Spec.StreamModeDetails = f8
+		ko.Spec.StreamModeDetails = f10
 	} else {
 		ko.Spec.StreamModeDetails = nil
 	}
@@ -172,14 +178,62 @@ func (rm *resourceManager) sdkFind(
 
 	rm.setStatusDefaults(ko)
 
+	if !isStreamActive(ko.Status.StreamStatus) {
+		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
+	}
+
 	// We need to get the tags that are in the AWS resource
 	ko.Spec.Tags, err = rm.getTags(ctx, ko.Spec.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	if !isStreamActive(r.ko.Status.StreamStatus) {
-		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
+	// Read the resource-based policy attached to the stream (if any) so that
+	// the delta comparison reflects the actual policy state.
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		policy, err := rm.getResourcePolicyWithContext(ctx, (*string)(ko.Status.ACKResourceMetadata.ARN))
+		if err != nil {
+			return nil, err
+		}
+		ko.Spec.ResourcePolicy = policy
+	}
+
+	// Surface the currently-enabled shard-level metrics into the spec field so
+	// that the delta comparison reflects the stream's actual enhanced
+	// monitoring state. ShardLevelMetrics is not returned at its spec path by
+	// DescribeStreamSummary; it lives under the read-only EnhancedMonitoring
+	// status field.
+	ko.Spec.ShardLevelMetrics = nil
+	for _, em := range ko.Status.EnhancedMonitoring {
+		if em == nil {
+			continue
+		}
+		ko.Spec.ShardLevelMetrics = append(ko.Spec.ShardLevelMetrics, em.ShardLevelMetrics...)
+	}
+
+	// WarmThroughputMiBps is returned by DescribeStreamSummary inside a nested
+	// WarmThroughput object (as TargetMiBps) rather than at its flat spec path,
+	// so surface it here to keep the delta comparison stable after an update.
+	if resp.StreamDescriptionSummary.WarmThroughput != nil &&
+		resp.StreamDescriptionSummary.WarmThroughput.TargetMiBps != nil {
+		warmThroughputMiBpsCopy := int64(*resp.StreamDescriptionSummary.WarmThroughput.TargetMiBps)
+		ko.Spec.WarmThroughputMiBps = &warmThroughputMiBpsCopy
+	} else {
+		ko.Spec.WarmThroughputMiBps = nil
+	}
+
+	// ShardCount is not returned at its spec path by DescribeStreamSummary; the
+	// stream reports its current shard count via the read-only OpenShardCount
+	// field. Mirror it into Spec.ShardCount so the delta comparison is stable for
+	// a PROVISIONED stream whose desired shard count already matches the actual
+	// one (otherwise a nil latest would drive a perpetual, failing
+	// UpdateShardCount loop). compareShardCount ignores ShardCount for ON_DEMAND
+	// streams, where capacity is managed automatically.
+	if ko.Status.OpenShardCount != nil {
+		shardCountCopy := *ko.Status.OpenShardCount
+		ko.Spec.ShardCount = &shardCountCopy
+	} else {
+		ko.Spec.ShardCount = nil
 	}
 
 	return &resource{ko}, nil
@@ -227,6 +281,14 @@ func (rm *resourceManager) sdkCreate(
 	if err != nil {
 		return nil, err
 	}
+	// ShardCount must not be supplied when creating a stream in ON_DEMAND
+	// capacity mode: Kinesis manages capacity automatically and rejects the
+	// request with InvalidArgumentException ("ShardCount cannot be set while
+	// creating stream in On-Demand StreamMode"). Drop it from the request so an
+	// ON_DEMAND stream can still carry a (ignored) ShardCount in its spec.
+	if isOnDemand(desired) {
+		input.ShardCount = nil
+	}
 
 	var resp *svcsdk.CreateStreamOutput
 	_ = resp
@@ -254,6 +316,14 @@ func (rm *resourceManager) newCreateRequestPayload(
 ) (*svcsdk.CreateStreamInput, error) {
 	res := &svcsdk.CreateStreamInput{}
 
+	if r.ko.Spec.MaxRecordSizeInKiB != nil {
+		maxRecordSizeInKiBCopy0 := *r.ko.Spec.MaxRecordSizeInKiB
+		if maxRecordSizeInKiBCopy0 > math.MaxInt32 || maxRecordSizeInKiBCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field MaxRecordSizeInKiB is of type int32")
+		}
+		maxRecordSizeInKiBCopy := int32(maxRecordSizeInKiBCopy0)
+		res.MaxRecordSizeInKiB = &maxRecordSizeInKiBCopy
+	}
 	if r.ko.Spec.ShardCount != nil {
 		shardCountCopy0 := *r.ko.Spec.ShardCount
 		if shardCountCopy0 > math.MaxInt32 || shardCountCopy0 < math.MinInt32 {
@@ -263,14 +333,22 @@ func (rm *resourceManager) newCreateRequestPayload(
 		res.ShardCount = &shardCountCopy
 	}
 	if r.ko.Spec.StreamModeDetails != nil {
-		f1 := &svcsdktypes.StreamModeDetails{}
+		f2 := &svcsdktypes.StreamModeDetails{}
 		if r.ko.Spec.StreamModeDetails.StreamMode != nil {
-			f1.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
+			f2.StreamMode = svcsdktypes.StreamMode(*r.ko.Spec.StreamModeDetails.StreamMode)
 		}
-		res.StreamModeDetails = f1
+		res.StreamModeDetails = f2
 	}
 	if r.ko.Spec.Name != nil {
 		res.StreamName = r.ko.Spec.Name
+	}
+	if r.ko.Spec.WarmThroughputMiBps != nil {
+		warmThroughputMiBpsCopy0 := *r.ko.Spec.WarmThroughputMiBps
+		if warmThroughputMiBpsCopy0 > math.MaxInt32 || warmThroughputMiBpsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field WarmThroughputMiBps is of type int32")
+		}
+		warmThroughputMiBpsCopy := int32(warmThroughputMiBpsCopy0)
+		res.WarmThroughputMiBps = &warmThroughputMiBpsCopy
 	}
 
 	return res, nil
@@ -290,18 +368,67 @@ func (rm *resourceManager) sdkUpdate(
 		exit(err)
 	}()
 	if delta.DifferentAt("Spec.Tags") {
-		err := rm.syncTags(
-			ctx,
-			latest,
-			desired,
-		)
-		if err != nil {
+		if err := rm.syncTags(ctx, latest, desired); err != nil {
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.Tags") {
+	// ResourcePolicy is managed out-of-band via the Put/DeleteResourcePolicy
+	// APIs rather than the UpdateShardCount call used for the standard update
+	// path.
+	if delta.DifferentAt("Spec.ResourcePolicy") {
+		if err := rm.syncResourcePolicy(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	// Needs requeue because the update changes the Stream state to UPDATING
+	if delta.DifferentAt("Spec.ShardLevelMetrics") {
+		if err := rm.syncShardLevelMetrics(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+		return desired, ackrequeue.NeededAfter(
+			fmt.Errorf("stream update in progress, requeuing"),
+			ackrequeue.DefaultRequeueAfterDuration,
+		)
+	}
+
+	// Needs requeue because the update changes the Stream state to UPDATING
+	if delta.DifferentAt("Spec.MaxRecordSizeInKiB") {
+		if err := rm.syncMaxRecordSize(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+		return desired, ackrequeue.NeededAfter(
+			fmt.Errorf("stream update in progress, requeuing"),
+			ackrequeue.DefaultRequeueAfterDuration,
+		)
+	}
+
+	// Needs requeue because the update changes the Stream state to UPDATING
+	if delta.DifferentAt("Spec.WarmThroughputMiBps") {
+		if err := rm.syncWarmThroughput(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+		return desired, ackrequeue.NeededAfter(
+			fmt.Errorf("stream update in progress, requeuing"),
+			ackrequeue.DefaultRequeueAfterDuration,
+		)
+	}
+
+	// Needs requeue because the update changes the Stream state to UPDATING
+	if delta.DifferentAt("Spec.StreamModeDetails") {
+		if err := rm.syncStreamMode(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+		return desired, ackrequeue.NeededAfter(
+			fmt.Errorf("stream update in progress, requeuing"),
+			ackrequeue.DefaultRequeueAfterDuration,
+		)
+	}
+
+	if !delta.DifferentExcept("Spec.Tags", "Spec.ResourcePolicy", "Spec.MaxRecordSizeInKiB", "Spec.ShardLevelMetrics", "Spec.WarmThroughputMiBps", "Spec.StreamModeDetails") {
 		return desired, nil
 	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err
@@ -401,6 +528,9 @@ func (rm *resourceManager) newDeleteRequestPayload(
 ) (*svcsdk.DeleteStreamInput, error) {
 	res := &svcsdk.DeleteStreamInput{}
 
+	if r.ko.Spec.EnforceConsumerDeletion != nil {
+		res.EnforceConsumerDeletion = r.ko.Spec.EnforceConsumerDeletion
+	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
 		res.StreamARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
