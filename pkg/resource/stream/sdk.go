@@ -222,6 +222,20 @@ func (rm *resourceManager) sdkFind(
 		ko.Spec.WarmThroughputMiBps = nil
 	}
 
+	// ShardCount is not returned at its spec path by DescribeStreamSummary; the
+	// stream reports its current shard count via the read-only OpenShardCount
+	// field. Mirror it into Spec.ShardCount so the delta comparison is stable for
+	// a PROVISIONED stream whose desired shard count already matches the actual
+	// one (otherwise a nil latest would drive a perpetual, failing
+	// UpdateShardCount loop). compareShardCount ignores ShardCount for ON_DEMAND
+	// streams, where capacity is managed automatically.
+	if ko.Status.OpenShardCount != nil {
+		shardCountCopy := *ko.Status.OpenShardCount
+		ko.Spec.ShardCount = &shardCountCopy
+	} else {
+		ko.Spec.ShardCount = nil
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -266,6 +280,14 @@ func (rm *resourceManager) sdkCreate(
 	input, err := rm.newCreateRequestPayload(ctx, desired)
 	if err != nil {
 		return nil, err
+	}
+	// ShardCount must not be supplied when creating a stream in ON_DEMAND
+	// capacity mode: Kinesis manages capacity automatically and rejects the
+	// request with InvalidArgumentException ("ShardCount cannot be set while
+	// creating stream in On-Demand StreamMode"). Drop it from the request so an
+	// ON_DEMAND stream can still carry a (ignored) ShardCount in its spec.
+	if isOnDemand(desired) {
+		input.ShardCount = nil
 	}
 
 	var resp *svcsdk.CreateStreamOutput

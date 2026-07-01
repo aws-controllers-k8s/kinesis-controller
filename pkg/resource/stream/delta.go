@@ -45,19 +45,13 @@ func newResourceDelta(
 	compareWarmThroughput(delta, a, b)
 	compareMaxRecordSize(delta, a, b)
 	compareStreamModeDetails(delta, a, b)
+	compareShardCount(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
-		}
-	}
-	if ackcompare.HasNilDifference(a.ko.Spec.ShardCount, b.ko.Spec.ShardCount) {
-		delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
-	} else if a.ko.Spec.ShardCount != nil && b.ko.Spec.ShardCount != nil {
-		if *a.ko.Spec.ShardCount != *b.ko.Spec.ShardCount {
-			delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
 		}
 	}
 	desiredACKTags, _ := convertToOrderedACKTags(a.ko.Spec.Tags)

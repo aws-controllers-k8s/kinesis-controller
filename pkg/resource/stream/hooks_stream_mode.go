@@ -44,6 +44,35 @@ func compareStreamModeDetails(
 	}
 }
 
+// isOnDemand reports whether the resource's capacity mode is ON_DEMAND.
+func isOnDemand(r *resource) bool {
+	return r.ko.Spec.StreamModeDetails != nil &&
+		r.ko.Spec.StreamModeDetails.StreamMode != nil &&
+		*r.ko.Spec.StreamModeDetails.StreamMode == string(svcsdktypes.StreamModeOnDemand)
+}
+
+// compareShardCount records a delta on ShardCount only for PROVISIONED streams.
+// ON_DEMAND streams manage shard capacity automatically and reject a supplied
+// shard count on both CreateStream and UpdateShardCount, so a ShardCount value
+// in the spec (or the shard count read back from AWS) must never register as a
+// diff for an on-demand stream — doing so would drive a perpetual, failing
+// UpdateShardCount loop.
+func compareShardCount(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if isOnDemand(a) || isOnDemand(b) {
+		return
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.ShardCount, b.ko.Spec.ShardCount) {
+		delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
+	} else if a.ko.Spec.ShardCount != nil && b.ko.Spec.ShardCount != nil &&
+		*a.ko.Spec.ShardCount != *b.ko.Spec.ShardCount {
+		delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
+	}
+}
+
 // syncStreamMode updates a stream's capacity mode via the dedicated
 // UpdateStreamMode API. StreamModeDetails cannot be modified through the
 // standard UpdateShardCount update path, so it is handled out-of-band here.

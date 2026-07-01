@@ -78,3 +78,56 @@ func Test_compareStreamModeDetails(t *testing.T) {
 		})
 	}
 }
+
+func shardCountResource(mode *string, shardCount *int64) *resource {
+	r := streamModeResource(mode)
+	r.ko.Spec.ShardCount = shardCount
+	return r
+}
+
+func Test_compareShardCount(t *testing.T) {
+	onDemand := aws.String("ON_DEMAND")
+	provisioned := aws.String("PROVISIONED")
+	type args struct {
+		a *resource
+		b *resource
+	}
+	tests := []struct {
+		name          string
+		args          args
+		wantDifferent bool
+	}{
+		{
+			// The reported case: an ON_DEMAND stream carries a ShardCount in its
+			// spec, but AWS never reports it back at Spec.ShardCount. This must
+			// not diff, or it would drive a failing UpdateShardCount loop.
+			name:          "ON_DEMAND desired shard count vs nil latest is ignored",
+			args:          args{a: shardCountResource(onDemand, aws.Int64(4)), b: shardCountResource(onDemand, nil)},
+			wantDifferent: false,
+		},
+		{
+			name:          "ON_DEMAND ignored even when latest reports a different count",
+			args:          args{a: shardCountResource(onDemand, aws.Int64(1)), b: shardCountResource(onDemand, aws.Int64(4))},
+			wantDifferent: false,
+		},
+		{
+			name:          "PROVISIONED matching shard counts",
+			args:          args{a: shardCountResource(provisioned, aws.Int64(3)), b: shardCountResource(provisioned, aws.Int64(3))},
+			wantDifferent: false,
+		},
+		{
+			name:          "PROVISIONED differing shard counts",
+			args:          args{a: shardCountResource(provisioned, aws.Int64(5)), b: shardCountResource(provisioned, aws.Int64(3))},
+			wantDifferent: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delta := &compare.Delta{}
+			compareShardCount(delta, tt.args.a, tt.args.b)
+			if got := delta.DifferentAt("Spec.ShardCount"); got != tt.wantDifferent {
+				t.Errorf("compareShardCount() difference = %v, want %v", got, tt.wantDifferent)
+			}
+		})
+	}
+}

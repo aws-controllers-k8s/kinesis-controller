@@ -42,3 +42,17 @@
 	} else {
 		ko.Spec.WarmThroughputMiBps = nil
 	}
+
+	// ShardCount is not returned at its spec path by DescribeStreamSummary; the
+	// stream reports its current shard count via the read-only OpenShardCount
+	// field. Mirror it into Spec.ShardCount so the delta comparison is stable for
+	// a PROVISIONED stream whose desired shard count already matches the actual
+	// one (otherwise a nil latest would drive a perpetual, failing
+	// UpdateShardCount loop). compareShardCount ignores ShardCount for ON_DEMAND
+	// streams, where capacity is managed automatically.
+	if ko.Status.OpenShardCount != nil {
+		shardCountCopy := *ko.Status.OpenShardCount
+		ko.Spec.ShardCount = &shardCountCopy
+	} else {
+		ko.Spec.ShardCount = nil
+	}
