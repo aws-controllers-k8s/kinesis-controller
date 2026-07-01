@@ -47,21 +47,22 @@ func (rm *resourceManager) syncTags(
 	return util.SyncResourceTags(ctx, rm.sdkapi, rm.metrics, latest.ko.Spec.Name, desired.ko.Spec.Tags, latest.ko.Spec.Tags)
 }
 
-// compareMaxRecordSize records a delta on MaxRecordSizeInKiB only when the user
-// has expressed a desired value. A stream always reports an effective max record
-// size (it defaults to 1024 KiB and cannot be unset), so when the field is
-// absent from the desired spec ACK leaves it untouched rather than continually
-// reconciling the server-side default.
+const defaultMaxRecordSizeInKiB int64 = 1024
+
 func compareMaxRecordSize(
 	delta *ackcompare.Delta,
 	a *resource,
 	b *resource,
 ) {
-	if a.ko.Spec.MaxRecordSizeInKiB == nil {
-		return
+	desired := defaultMaxRecordSizeInKiB
+	if a.ko.Spec.MaxRecordSizeInKiB != nil {
+		desired = *a.ko.Spec.MaxRecordSizeInKiB
 	}
-	if b.ko.Spec.MaxRecordSizeInKiB == nil ||
-		*a.ko.Spec.MaxRecordSizeInKiB != *b.ko.Spec.MaxRecordSizeInKiB {
+	latest := defaultMaxRecordSizeInKiB
+	if b.ko.Spec.MaxRecordSizeInKiB != nil {
+		latest = *b.ko.Spec.MaxRecordSizeInKiB
+	}
+	if desired != latest {
 		delta.Add("Spec.MaxRecordSizeInKiB", a.ko.Spec.MaxRecordSizeInKiB, b.ko.Spec.MaxRecordSizeInKiB)
 	}
 }
@@ -78,16 +79,15 @@ func (rm *resourceManager) syncMaxRecordSize(
 	exit := rlog.Trace("rm.syncMaxRecordSize")
 	defer func(err error) { exit(err) }(err)
 
-	if desired.ko.Spec.MaxRecordSizeInKiB == nil {
-		return nil
-	}
-
 	if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
 		return errors.New("stream ARN is required to update max record size")
 	}
 	streamARN := (*string)(latest.ko.Status.ACKResourceMetadata.ARN)
 
-	maxRecordSize := *desired.ko.Spec.MaxRecordSizeInKiB
+	maxRecordSize := defaultMaxRecordSizeInKiB
+	if desired.ko.Spec.MaxRecordSizeInKiB != nil {
+		maxRecordSize = *desired.ko.Spec.MaxRecordSizeInKiB
+	}
 	if maxRecordSize > math.MaxInt32 || maxRecordSize < math.MinInt32 {
 		return fmt.Errorf("error: field MaxRecordSizeInKiB is of type int32")
 	}

@@ -46,11 +46,14 @@ func Test_compareStreamModeDetails(t *testing.T) {
 			wantDifferent: false,
 		},
 		{
-			// The reported phantom diff: user leaves the mode unset, AWS
-			// reports the PROVISIONED default. ACK must not try to reconcile it.
-			name:          "desired unset is never managed even when latest is the AWS default",
+			name:          "desired unset matches the PROVISIONED default",
 			args:          args{a: streamModeResource(nil), b: streamModeResource(aws.String("PROVISIONED"))},
 			wantDifferent: false,
+		},
+		{
+			name:          "desired unset reverts ON_DEMAND latest to PROVISIONED",
+			args:          args{a: streamModeResource(nil), b: streamModeResource(aws.String("ON_DEMAND"))},
+			wantDifferent: true,
 		},
 		{
 			name:          "desired set, latest unset",
@@ -108,6 +111,11 @@ func Test_compareShardCount(t *testing.T) {
 		{
 			name:          "ON_DEMAND ignored even when latest reports a different count",
 			args:          args{a: shardCountResource(onDemand, aws.Int64(1)), b: shardCountResource(onDemand, aws.Int64(4))},
+			wantDifferent: false,
+		},
+		{
+			name:          "PROVISIONED unset desired shard count is left unmanaged",
+			args:          args{a: shardCountResource(provisioned, nil), b: shardCountResource(provisioned, aws.Int64(4))},
 			wantDifferent: false,
 		},
 		{

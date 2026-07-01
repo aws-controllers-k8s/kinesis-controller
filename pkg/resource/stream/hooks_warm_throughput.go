@@ -24,21 +24,25 @@ import (
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/kinesis"
 )
 
-// compareWarmThroughput records a delta on WarmThroughputMiBps only when the
-// user has expressed a desired value. Every stream always reports a warm
-// throughput (it cannot be unset), so when the field is absent from the
-// desired spec ACK leaves the stream's warm throughput untouched rather than
-// continually trying to reconcile a server-managed value.
+const defaultWarmThroughputMiBps int64 = 0
+
 func compareWarmThroughput(
 	delta *ackcompare.Delta,
 	a *resource,
 	b *resource,
 ) {
-	if a.ko.Spec.WarmThroughputMiBps == nil {
+	if !isOnDemand(a) || !isOnDemand(b) {
 		return
 	}
-	if b.ko.Spec.WarmThroughputMiBps == nil ||
-		*a.ko.Spec.WarmThroughputMiBps != *b.ko.Spec.WarmThroughputMiBps {
+	desired := defaultWarmThroughputMiBps
+	if a.ko.Spec.WarmThroughputMiBps != nil {
+		desired = *a.ko.Spec.WarmThroughputMiBps
+	}
+	latest := defaultWarmThroughputMiBps
+	if b.ko.Spec.WarmThroughputMiBps != nil {
+		latest = *b.ko.Spec.WarmThroughputMiBps
+	}
+	if desired != latest {
 		delta.Add("Spec.WarmThroughputMiBps", a.ko.Spec.WarmThroughputMiBps, b.ko.Spec.WarmThroughputMiBps)
 	}
 }
@@ -56,16 +60,15 @@ func (rm *resourceManager) syncWarmThroughput(
 	exit := rlog.Trace("rm.syncWarmThroughput")
 	defer func(err error) { exit(err) }(err)
 
-	if desired.ko.Spec.WarmThroughputMiBps == nil {
-		return nil
-	}
-
 	if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
 		return errors.New("stream ARN is required to update warm throughput")
 	}
 	streamARN := (*string)(latest.ko.Status.ACKResourceMetadata.ARN)
 
-	warmThroughput := *desired.ko.Spec.WarmThroughputMiBps
+	warmThroughput := defaultWarmThroughputMiBps
+	if desired.ko.Spec.WarmThroughputMiBps != nil {
+		warmThroughput = *desired.ko.Spec.WarmThroughputMiBps
+	}
 	if warmThroughput > math.MaxInt32 || warmThroughput < math.MinInt32 {
 		return fmt.Errorf("error: field WarmThroughputMiBps is of type int32")
 	}

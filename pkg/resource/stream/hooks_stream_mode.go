@@ -23,32 +23,29 @@ import (
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-// compareStreamModeDetails records a delta on StreamModeDetails only when the
-// user has expressed a desired capacity mode. Every stream always reports a
-// stream mode (Kinesis defaults a stream to PROVISIONED, which the read path
-// surfaces into the latest state), so when the field is absent from the desired
-// spec ACK leaves the stream's mode untouched rather than continually trying to
-// reconcile the server-managed default.
+// defaultStreamMode is the capacity mode Kinesis applies when none is specified.
+const defaultStreamMode = string(svcsdktypes.StreamModeProvisioned)
+
+func effectiveStreamMode(r *resource) string {
+	if r.ko.Spec.StreamModeDetails != nil && r.ko.Spec.StreamModeDetails.StreamMode != nil {
+		return *r.ko.Spec.StreamModeDetails.StreamMode
+	}
+	return defaultStreamMode
+}
+
 func compareStreamModeDetails(
 	delta *ackcompare.Delta,
 	a *resource,
 	b *resource,
 ) {
-	if a.ko.Spec.StreamModeDetails == nil || a.ko.Spec.StreamModeDetails.StreamMode == nil {
-		return
-	}
-	if b.ko.Spec.StreamModeDetails == nil ||
-		b.ko.Spec.StreamModeDetails.StreamMode == nil ||
-		*a.ko.Spec.StreamModeDetails.StreamMode != *b.ko.Spec.StreamModeDetails.StreamMode {
+	if effectiveStreamMode(a) != effectiveStreamMode(b) {
 		delta.Add("Spec.StreamModeDetails", a.ko.Spec.StreamModeDetails, b.ko.Spec.StreamModeDetails)
 	}
 }
 
-// isOnDemand reports whether the resource's capacity mode is ON_DEMAND.
+// isOnDemand reports whether the resource's effective capacity mode is ON_DEMAND.
 func isOnDemand(r *resource) bool {
-	return r.ko.Spec.StreamModeDetails != nil &&
-		r.ko.Spec.StreamModeDetails.StreamMode != nil &&
-		*r.ko.Spec.StreamModeDetails.StreamMode == string(svcsdktypes.StreamModeOnDemand)
+	return effectiveStreamMode(r) == string(svcsdktypes.StreamModeOnDemand)
 }
 
 // compareShardCount records a delta on ShardCount only for PROVISIONED streams.
@@ -65,10 +62,15 @@ func compareShardCount(
 	if isOnDemand(a) || isOnDemand(b) {
 		return
 	}
-	if ackcompare.HasNilDifference(a.ko.Spec.ShardCount, b.ko.Spec.ShardCount) {
-		delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
-	} else if a.ko.Spec.ShardCount != nil && b.ko.Spec.ShardCount != nil &&
-		*a.ko.Spec.ShardCount != *b.ko.Spec.ShardCount {
+	// ShardCount has no fixed default to restore (it is required at creation for
+	// a PROVISIONED stream and set by AWS when switching from ON_DEMAND), so an
+	// absent desired value means "leave the stream's current shard count as-is"
+	// rather than reverting. This also avoids a failing UpdateShardCount(nil)
+	// after a stream is reverted from ON_DEMAND to PROVISIONED.
+	if a.ko.Spec.ShardCount == nil {
+		return
+	}
+	if b.ko.Spec.ShardCount == nil || *a.ko.Spec.ShardCount != *b.ko.Spec.ShardCount {
 		delta.Add("Spec.ShardCount", a.ko.Spec.ShardCount, b.ko.Spec.ShardCount)
 	}
 }
@@ -85,10 +87,6 @@ func (rm *resourceManager) syncStreamMode(
 	exit := rlog.Trace("rm.syncStreamMode")
 	defer func(err error) { exit(err) }(err)
 
-	if desired.ko.Spec.StreamModeDetails == nil || desired.ko.Spec.StreamModeDetails.StreamMode == nil {
-		return nil
-	}
-
 	if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
 		return errors.New("stream ARN is required to update stream mode")
 	}
@@ -99,7 +97,7 @@ func (rm *resourceManager) syncStreamMode(
 		&svcsdk.UpdateStreamModeInput{
 			StreamARN: streamARN,
 			StreamModeDetails: &svcsdktypes.StreamModeDetails{
-				StreamMode: svcsdktypes.StreamMode(*desired.ko.Spec.StreamModeDetails.StreamMode),
+				StreamMode: svcsdktypes.StreamMode(effectiveStreamMode(desired)),
 			},
 		},
 	)

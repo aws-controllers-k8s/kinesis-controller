@@ -22,10 +22,13 @@ import (
 	compare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 )
 
+// warmThroughputResource builds an ON_DEMAND stream (warm throughput is an
+// on-demand-only feature) with the given warm throughput value.
 func warmThroughputResource(mibps *int64) *resource {
 	return &resource{
 		ko: &v1alpha1.Stream{
 			Spec: v1alpha1.StreamSpec{
+				StreamModeDetails:   &v1alpha1.StreamModeDetails{StreamMode: aws.String("ON_DEMAND")},
 				WarmThroughputMiBps: mibps,
 			},
 		},
@@ -43,17 +46,22 @@ func Test_compareWarmThroughput(t *testing.T) {
 		wantDifferent bool
 	}{
 		{
-			name:          "both unset",
+			name:          "both unset (off)",
 			args:          args{a: warmThroughputResource(nil), b: warmThroughputResource(nil)},
 			wantDifferent: false,
 		},
 		{
-			name:          "desired unset is never managed even when latest is set",
-			args:          args{a: warmThroughputResource(nil), b: warmThroughputResource(aws.Int64(250))},
+			name:          "explicit zero matches unset latest",
+			args:          args{a: warmThroughputResource(aws.Int64(0)), b: warmThroughputResource(nil)},
 			wantDifferent: false,
 		},
 		{
-			name:          "desired set, latest unset",
+			name:          "desired unset turns off a set latest",
+			args:          args{a: warmThroughputResource(nil), b: warmThroughputResource(aws.Int64(250))},
+			wantDifferent: true,
+		},
+		{
+			name:          "desired set, latest off",
 			args:          args{a: warmThroughputResource(aws.Int64(100)), b: warmThroughputResource(nil)},
 			wantDifferent: true,
 		},
@@ -67,7 +75,19 @@ func Test_compareWarmThroughput(t *testing.T) {
 			args:          args{a: warmThroughputResource(aws.Int64(200)), b: warmThroughputResource(aws.Int64(100))},
 			wantDifferent: true,
 		},
+		{
+			name: "provisioned stream is never managed",
+			args: args{
+				a: streamModeResource(aws.String("PROVISIONED")),
+				b: streamModeResource(aws.String("PROVISIONED")),
+			},
+			wantDifferent: false,
+		},
 	}
+	// Give the provisioned-stream case differing warm throughput values to prove
+	// the guard (not the value comparison) is what suppresses the delta.
+	tests[len(tests)-1].args.a.ko.Spec.WarmThroughputMiBps = aws.Int64(100)
+	tests[len(tests)-1].args.b.ko.Spec.WarmThroughputMiBps = aws.Int64(250)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			delta := &compare.Delta{}

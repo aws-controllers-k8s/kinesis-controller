@@ -48,9 +48,14 @@ func Test_compareMaxRecordSize(t *testing.T) {
 			wantDifferent: false,
 		},
 		{
-			name:          "desired unset is never managed even when latest reports the default",
+			name:          "desired unset matches latest at the default",
 			args:          args{a: maxRecordSizeResource(nil), b: maxRecordSizeResource(aws.Int64(1024))},
 			wantDifferent: false,
+		},
+		{
+			name:          "desired unset reverts a non-default latest to the default",
+			args:          args{a: maxRecordSizeResource(nil), b: maxRecordSizeResource(aws.Int64(2048))},
+			wantDifferent: true,
 		},
 		{
 			name:          "desired set, latest unset",
