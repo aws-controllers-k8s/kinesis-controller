@@ -72,6 +72,7 @@ rules:
 - apiGroups:
   - kinesis.services.k8s.aws
   resources:
+  - streamconsumers
   - streams
   verbs:
   - create
@@ -84,6 +85,7 @@ rules:
 - apiGroups:
   - kinesis.services.k8s.aws
   resources:
+  - streamconsumers/status
   - streams/status
   verbs:
   - get

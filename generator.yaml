@@ -116,6 +116,8 @@ resources:
         404:
           code: ResourceNotFoundException
     fields:
+      ConsumerName:
+        is_primary_key: true
       StreamARN:
         references:
           resource: Stream
