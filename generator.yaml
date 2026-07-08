@@ -16,6 +16,17 @@ operations:
     override_values:
       # This is the only accepted value for this field, and it's required...
       ScalingType: UNIFORM_SCALING
+  RegisterStreamConsumer:
+    resource_name: StreamConsumer
+    operation_type: CREATE
+    output_wrapper_field_path: Consumer
+  DescribeStreamConsumer:
+    resource_name: StreamConsumer
+    operation_type: READ_ONE
+    output_wrapper_field_path: ConsumerDescription
+  DeregisterStreamConsumer:
+    resource_name: StreamConsumer
+    operation_type: DELETE
 resources:
   Stream:
     renames:
@@ -96,3 +107,21 @@ resources:
         from:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.StreamStatus
+  StreamConsumer:
+    # Stream consumers do not support tagging
+    tags:
+      ignore: true
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
+    fields:
+      StreamARN:
+        references:
+          resource: Stream
+          path: Status.ACKResourceMetadata.ARN
+    synced:
+      when:
+        - path: Status.ConsumerStatus
+          in:
+            - ACTIVE
