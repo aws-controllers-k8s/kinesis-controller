@@ -31,13 +31,19 @@ var (
 // An object that represents the details of the consumer you registered. This
 // type of object is returned by RegisterStreamConsumer.
 type Consumer struct {
+	ConsumerARN               *string      `json:"consumerARN,omitempty"`
 	ConsumerCreationTimestamp *metav1.Time `json:"consumerCreationTimestamp,omitempty"`
+	ConsumerName              *string      `json:"consumerName,omitempty"`
+	ConsumerStatus            *string      `json:"consumerStatus,omitempty"`
 }
 
 // An object that represents the details of a registered consumer. This type
 // of object is returned by DescribeStreamConsumer.
 type ConsumerDescription struct {
+	ConsumerARN               *string      `json:"consumerARN,omitempty"`
 	ConsumerCreationTimestamp *metav1.Time `json:"consumerCreationTimestamp,omitempty"`
+	ConsumerName              *string      `json:"consumerName,omitempty"`
+	ConsumerStatus            *string      `json:"consumerStatus,omitempty"`
 	StreamARN                 *string      `json:"streamARN,omitempty"`
 }
 

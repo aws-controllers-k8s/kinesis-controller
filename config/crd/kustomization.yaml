@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - common
   - bases/kinesis.services.k8s.aws_streams.yaml
+  - bases/kinesis.services.k8s.aws_streamconsumers.yaml

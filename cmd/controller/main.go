@@ -40,6 +40,7 @@ import (
 	svcresource "github.com/aws-controllers-k8s/kinesis-controller/pkg/resource"
 
 	_ "github.com/aws-controllers-k8s/kinesis-controller/pkg/resource/stream"
+	_ "github.com/aws-controllers-k8s/kinesis-controller/pkg/resource/stream_consumer"
 
 	"github.com/aws-controllers-k8s/kinesis-controller/pkg/version"
 )

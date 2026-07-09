@@ -10,6 +10,7 @@ rules:
   - kinesis.services.k8s.aws
   resources:
   - streams
+  - streamconsumers
   verbs:
   - get
   - list

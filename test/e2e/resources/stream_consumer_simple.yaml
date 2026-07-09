@@ -1,0 +1,9 @@
+apiVersion: kinesis.services.k8s.aws/v1alpha1
+kind: StreamConsumer
+metadata:
+  name: $CONSUMER_NAME
+spec:
+  consumerName: $CONSUMER_NAME
+  streamRef:
+    from:
+      name: $STREAM_NAME
