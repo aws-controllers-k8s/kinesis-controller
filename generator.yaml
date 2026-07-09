@@ -108,7 +108,10 @@ resources:
           operation: DescribeStreamSummary
           path: StreamDescriptionSummary.StreamStatus
   StreamConsumer:
-    # Stream consumers do not support tagging
+    # The Kinesis API supports tagging consumers (RegisterStreamConsumer Tags
+    # parameter, TagResource/ListTagsForResource), but those operations are not
+    # yet present in the aws-sdk-go-v2/service/kinesis version this controller
+    # is generated against, so controller tag support is ignored for now.
     tags:
       ignore: true
     exceptions:
