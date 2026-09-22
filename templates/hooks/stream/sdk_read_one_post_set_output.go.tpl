@@ -5,6 +5,9 @@
         return nil, err
     }
 
-	if !isStreamActive(r.ko.Status.StreamStatus) {
-		return &resource{ko}, ackrequeue.Needed(fmt.Errorf("resource is not active"))
+	if !isStreamActive(ko.Status.StreamStatus) {
+		return &resource{ko}, ackrequeue.NeededAfter(
+			fmt.Errorf("resource is not active"),
+			ackrequeue.DefaultRequeueAfterDuration,
+		)
 	}

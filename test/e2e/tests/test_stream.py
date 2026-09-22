@@ -60,8 +60,8 @@ class TestStream:
 
         time.sleep(CHECK_STATUS_WAIT_SECONDS)
 
+        assert k8s.wait_on_condition(ref, condition.CONDITION_TYPE_RESOURCE_SYNCED, "True", wait_periods=5)
         assert cr["status"]["streamStatus"] == "ACTIVE"
-        condition.assert_synced(ref)
 
         latest = stream.get(stream_name)
         assert latest is not None
@@ -99,6 +99,7 @@ class TestStream:
         k8s.patch_custom_resource(ref, updates)
         time.sleep(MODIFY_WAIT_AFTER_SECONDS)
 
+        assert k8s.wait_on_condition(ref, condition.CONDITION_TYPE_RESOURCE_SYNCED, "True", wait_periods=5)
         cr = k8s.get_resource(ref)
 
         latest = stream.get(stream_name)
