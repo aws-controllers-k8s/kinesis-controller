@@ -3,7 +3,7 @@ module github.com/aws-controllers-k8s/kinesis-controller
 go 1.25.0
 
 require (
-	github.com/aws-controllers-k8s/runtime v0.66.0
+	github.com/aws-controllers-k8s/runtime v0.67.0
 	github.com/aws/aws-sdk-go-v2 v1.41.5
 	github.com/aws/aws-sdk-go-v2/service/kinesis v1.43.5
 	github.com/aws/smithy-go v1.24.2
