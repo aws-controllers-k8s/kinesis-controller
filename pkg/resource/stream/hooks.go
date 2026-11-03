@@ -35,8 +35,8 @@ func (rm *resourceManager) getTags(ctx context.Context, streamName *string) (map
 
 func (rm *resourceManager) syncTags(
 	ctx context.Context,
-	desired *resource,
 	latest *resource,
+	desired *resource,
 ) (err error) {
-	return util.SyncResourceTags(ctx, rm.sdkapi, rm.metrics, latest.ko.Spec.Name, desired.ko.Spec.Tags, latest.ko.Spec.Tags)
+	return util.SyncResourceTags(ctx, rm.sdkapi, rm.metrics, latest.ko.Spec.Name, latest.ko.Spec.Tags, desired.ko.Spec.Tags)
 }

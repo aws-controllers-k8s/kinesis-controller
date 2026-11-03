@@ -15,9 +15,12 @@ package tags
 
 import (
 	"context"
+	"maps"
+	"slices"
 
+	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	ackutil "github.com/aws-controllers-k8s/runtime/pkg/util"
+	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/kinesis"
 )
 
@@ -72,14 +75,20 @@ func SyncResourceTags(
 		exit(err)
 	}()
 
-	addedOrUpdated, removed := computeTagsDelta(latestTags, desiredTags)
+	from := toACKTags(latestTags)
+	to := toACKTags(desiredTags)
+	added, _, removed := ackcompare.GetTagsDifference(from, to)
+
+	if len(added) == 0 && len(removed) == 0 {
+		return nil
+	}
 
 	if len(removed) > 0 {
 		_, err = client.RemoveTagsFromStream(
 			ctx,
 			&svcsdk.RemoveTagsFromStreamInput{
 				StreamName: streamName,
-				TagKeys:    removed,
+				TagKeys:    slices.Sorted(maps.Keys(removed)),
 			},
 		)
 		mr.RecordAPICall("UPDATE", "RemoveTagsFromStream", err)
@@ -88,12 +97,12 @@ func SyncResourceTags(
 		}
 	}
 
-	if len(addedOrUpdated) > 0 {
+	if len(added) > 0 {
 		_, err = client.AddTagsToStream(
 			ctx,
 			&svcsdk.AddTagsToStreamInput{
 				StreamName: streamName,
-				Tags:       addedOrUpdated,
+				Tags:       added,
 			},
 		)
 		mr.RecordAPICall("UPDATE", "AddTagsToStream", err)
@@ -104,41 +113,16 @@ func SyncResourceTags(
 	return nil
 }
 
-// computeTagsDelta compares two Tag arrays and return two different list
-// containing the addedOrupdated and removed tags. The removed tags array
-// only contains the tags Keys.
-func computeTagsDelta(
-	latest map[string]*string,
-	desired map[string]*string,
-) (addedOrUpdated map[string]string, removed []string) {
-	var visitedKeys []string
-	addedOrUpdated = make(map[string]string)
-	removed = make([]string, 0)
-
-mainLoop:
-	for latestKey, latestValue := range latest {
-		visitedKeys = append(visitedKeys, latestKey)
-		for desiredKey, desiredValue := range desired {
-			if latestKey == desiredKey {
-				if !equalStrings(latestValue, desiredValue) {
-					addedOrUpdated[desiredKey] = *desiredValue
-				}
-				continue mainLoop
-			}
+// toACKTags converts the SDK tags map into the ACK runtime 'acktags.Tags'
+// shape. A nil tag value is represented as an empty string.
+func toACKTags(tags map[string]*string) acktags.Tags {
+	m := make(acktags.Tags, len(tags))
+	for k, v := range tags {
+		val := ""
+		if v != nil {
+			val = *v
 		}
-		removed = append(removed, latestKey)
+		m[k] = val
 	}
-	for desiredKey, desiredValue := range desired {
-		if !ackutil.InStrings(desiredKey, visitedKeys) {
-			addedOrUpdated[desiredKey] = *desiredValue
-		}
-	}
-	return addedOrUpdated, removed
-}
-
-func equalStrings(a, b *string) bool {
-	if a == nil {
-		return b == nil || *b == ""
-	}
-	return (*a == "" && b == nil) || *a == *b
+	return m
 }
