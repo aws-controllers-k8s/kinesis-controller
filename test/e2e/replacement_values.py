@@ -14,5 +14,8 @@
 Kinesis-specific test variables.
 """
 
+from e2e.bootstrap_resources import get_bootstrap_resources
+
 REPLACEMENT_VALUES = {
+    "KMS_KEY_ARN": get_bootstrap_resources().KMSKey.key_arn,
 }

@@ -128,3 +128,61 @@ class TestStream:
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
 
         stream.wait_until_deleted(stream_name)
+
+    def test_retention_and_encryption(self):
+        stream_name = random_suffix_name("ack-retention-stream", 24)
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements['STREAM_NAME'] = stream_name
+        replacements['SHARD_COUNT'] = "1"
+
+        resource_data = load_kinesis_resource(
+            "stream_simple",
+            additional_replacements=replacements,
+        )
+
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            stream_name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        k8s.wait_resource_consumed_by_controller(ref)
+
+        stream.wait_until_exists(stream_name)
+        time.sleep(CHECK_STATUS_WAIT_SECONDS)
+
+        updates = {
+            "spec": {
+                "desiredRetentionPeriodHours": 48,
+                "desiredEncryptionType": "KMS",
+                "encryptionKeyARN": replacements['KMS_KEY_ARN'],
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+
+        stream.wait_until(stream_name, stream.retention_period_matches(48))
+        stream.wait_until(stream_name, stream.encryption_type_matches("KMS"))
+
+        latest = stream.get(stream_name)
+        assert latest['RetentionPeriodHours'] == 48
+        assert latest['EncryptionType'] == "KMS"
+        assert latest['KeyId'] == replacements['KMS_KEY_ARN']
+
+        updates = {
+            "spec": {
+                "desiredRetentionPeriodHours": 24,
+                "desiredEncryptionType": "NONE",
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+
+        stream.wait_until(stream_name, stream.retention_period_matches(24))
+        stream.wait_until(stream_name, stream.encryption_type_matches("NONE"))
+
+        latest = stream.get(stream_name)
+        assert latest['RetentionPeriodHours'] == 24
+        assert latest['EncryptionType'] == "NONE"
+
+        k8s.delete_custom_resource(ref)
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+        stream.wait_until_deleted(stream_name)
